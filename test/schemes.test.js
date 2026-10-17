@@ -19,12 +19,16 @@ const badgeValue = (svg, adjId) => {
   return m ? m[1] : null;
 };
 
-test('три схеми зареєстровані під schemeId з каталогу', () => {
-  assert.deepEqual(Object.keys(SCHEMES).sort(), ['butterfly', 'low-row', 'lever-row'].sort());
+test('кожен schemeId каталогу має схему в реєстрі', () => {
+  for (const eq of seedEquipment()) {
+    if (!eq.schemeId || eq.hidden) continue;
+    assert.ok(schemeFor(eq), `${eq.id}: немає схеми ${eq.schemeId}`);
+    assert.equal(schemeFor(eq).id, eq.schemeId, eq.id);
+  }
   assert.equal(schemeFor(byId['eq-03']), SCHEMES.butterfly);
   assert.equal(schemeFor(byId['eq-22']), SCHEMES['lever-row']);
   assert.equal(schemeFor(byId['eq-26']), SCHEMES['low-row']);
-  assert.equal(schemeFor(byId['eq-01']), null, 'без schemeId — заглушка');
+  assert.equal(schemeFor({ ...byId['eq-01'], schemeId: null }), null, 'без schemeId — заглушка');
   assert.equal(schemeFor({ ...byId['eq-01'], schemeId: 'немає-такої' }), null);
 });
 
@@ -59,7 +63,7 @@ test('«Метелик»: передані значення видно на бе
   assert.equal(badgeValue(svg2, 'handles-pos'), '');
 });
 
-test('вертикальна тяга: сидіння 1…5 з ⚠, три зони хвату, вибрана підсвічена, «збоку» немає', () => {
+test('горизонтальна тяга (№22): сидіння 1…5 з ⚠, три зони хвату, вибрана підсвічена, «збоку» немає', () => {
   const eq = byId['eq-22'];
   const svg = SCHEMES['lever-row'].draw({ seat: 3, grip: 'red' }, eq.adjustments);
   assert.equal(badgeValue(svg, 'seat'), '3');
