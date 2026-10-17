@@ -121,3 +121,35 @@
 .pick-option { justify-content: flex-start; }
 .pick-pos.is-active, .pick-option.is-active { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
 .approx-note { margin: 0; padding: 4px 10px; border-radius: 8px; background: var(--warn-bg); color: var(--warn-text); }
+
+/* --- вкладки картки клієнта, «Сьогодні», «Календар» --- */
+.client-tabs { border: 0; font: inherit; }
+.client-tab { border: 0; background: transparent; font: inherit; font-weight: 700; cursor: pointer; }
+.client-tab.is-active { background: var(--primary); color: var(--primary-text); }
+.day-list { list-style: none; margin: 0; padding: 0; }
+.day-row {
+  display: flex; flex-direction: column; gap: 4px;
+  color: var(--text); text-decoration: none; padding: 12px 14px;
+}
+.day-row:active { background: var(--primary-soft); }
+.day-title { font-weight: 700; }
+.day-sets { display: flex; flex-wrap: wrap; gap: 2px 14px; color: var(--muted); }
+.day-set { white-space: nowrap; }
+.day-empty { padding: 24px 8px; text-align: center; }
+.cal-nav { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+.cal-title { flex: 1; text-align: center; font-weight: 700; font-size: 1.15rem; }
+.cal-arrow { width: var(--tap); padding: 0; font-size: 1.6rem; flex: none; }
+.cal-grid { margin: 0 0 var(--gap); }
+.cal-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin: 0 0 4px; }
+.cal-wd { text-align: center; color: var(--muted); font-size: 0.85rem; font-weight: 600; padding: 2px 0; }
+.cal-day {
+  min-height: 44px; padding: 0; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.cal-day.is-blank { border-color: transparent; background: transparent; cursor: default; }
+.cal-day.has-workout { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
+.cal-day.is-today { box-shadow: inset 0 0 0 2px var(--text); }
+.cal-day.is-selected { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
+.cal-past { margin: 0 0 var(--gap); }
+.cal-day-view h2 { margin: var(--gap) 0 8px; }

@@ -1,7 +1,7 @@
 // Service worker: кешує всі файли програми, щоб вона працювала без інтернету.
 // Додав файл у src/ — допиши його в PRECACHE і підніми CACHE_VERSION.
 
-const CACHE_VERSION = 6;
+const CACHE_VERSION = 7;
 const CACHE_NAME = `trainer-log-v${CACHE_VERSION}`;
 
 const PRECACHE = [
@@ -34,6 +34,7 @@ const PRECACHE = [
   'src/schemes/svg.js',
   'src/schemes/upper.js',
   'src/schemes/values.js',
+  'src/ui/calendar.js',
   'src/ui/chart.js',
   'src/ui/client.js',
   'src/ui/clients.js',
@@ -45,6 +46,7 @@ const PRECACHE = [
   'src/ui/log-form.js',
   'src/ui/settings.js',
   'src/ui/start.js',
+  'src/ui/today.js',
 ];
 
 self.addEventListener('install', (event) => {
