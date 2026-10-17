@@ -139,3 +139,10 @@ renderScheme(container, equipment, exerciseId, values, {onPick(adjustmentId)})
 - share: `shareFile → 'shared'|'downloaded'|'cancelled'|'blocked'`, `downloadFile`, `pickFile`. exchange: `sendToTrainer(ctx)`, `sendToClient(ctx, clientId)`, `saveBackup(ctx)`, `openFile(ctx, {expect, title})`, `sendButton(ctx, clientId)`, `backupBanner(ctx) → Promise<Node|null>`.
 - store: `applyChanges({clients?, equipment?, sessions?, settings?, meta?})` — одна транзакція, `updatedAt` як передано, `deviceId` не чіпає.
 - `sw.js`: 41 файл у PRECACHE, `CACHE_VERSION=3`.
+
+## Межі правок (таски 05–07)
+
+- Equipment отримує `rare?: bool` (у меню — в кінці групи, сірим) і `catalogVersion` у meta (`meta.catalogVersion`). `CATALOG_VERSION` — експорт `catalog.js`.
+- `weightStep(equipment) → 5 (блок) | 2.5 (диски) | null (гантелі, турнік, кардіо)` у `model.js`; `validateSet(weightMode, raw, {step})`.
+- Нові `schemeId` (рядки) задає каталог (таск 05). Реєстр `src/schemes/registry.js` (таск 05) підтягує схеми з двох файлів-збірок: `src/schemes/upper.js` (груди, спина, плечі, руки, прес, гантелі — таск 06) і `src/schemes/legs.js` (ноги — таск 07), кожен `export const SCHEMES = [/* модулі схем {id, ADJUSTMENTS?, HINTS?, draw} */]`. Таск 05 створює їх порожніми і кладе в PRECACHE `sw.js`; 06 і 07 пишуть лише у свій файл. `schemeId` без реалізованої схеми → поточна заглушка.
+- Схема без регулювань: `draw(values, adjustments)` малює тренажер; підпис «Регулювань немає — лише вага» дає `renderScheme`.
