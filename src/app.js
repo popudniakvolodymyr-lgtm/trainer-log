@@ -4,7 +4,7 @@
 // Екран — функція render(container, ctx), ctx = { store, meta, params, navigate(hash), rerender() }.
 
 import { openStore } from './store.js';
-import { h, mount } from './ui/dom.js';
+import { h, mount, sheetHistorySettled } from './ui/dom.js';
 import { renderStart } from './ui/start.js';
 import { renderSettings } from './ui/settings.js';
 import { renderClients } from './ui/clients.js';
@@ -111,7 +111,10 @@ function goBack(meta) {
 const view = () => document.getElementById('view');
 const topbar = () => document.getElementById('topbar');
 
-function navigate(hash) {
+// Панель, що щойно закрилась, прибирає свій крок історії асинхронно (history.back) —
+// перехід і рендер чекають, щоб не читати й не міняти history.state чужого кроку (F3).
+async function navigate(hash) {
+  await sheetHistorySettled();
   if (location.hash === hash) render();
   else location.hash = hash;
 }
@@ -133,6 +136,8 @@ function renderTopbar(meta, route) {
 
 async function render() {
   const id = ++renderId;
+  await sheetHistorySettled();
+  if (id !== renderId) return;
   const meta = await store.getMeta();
   if (id !== renderId) return;
   const home = homeFor(meta);

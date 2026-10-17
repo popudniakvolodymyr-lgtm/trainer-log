@@ -68,3 +68,13 @@ test('changeRole: із записами — лише після підтверд
   assert.equal(done, true);
   assert.deepEqual(calls, ['clearAll', 'navigate #/start']);
 });
+
+test('changeRole: попередження рахує різні дні тренувань, а не записи вправ', async () => {
+  const s = (id, date, exerciseId) => ({ ...session('c1'), id, date, exerciseId });
+  const sessions = [s('a', '2026-10-01', 'eq-03-a'), s('b', '2026-10-01', 'eq-05-a'), s('c', '2026-10-01', 'eq-07-a'),
+    s('d', '2026-10-03', 'eq-03-a'), s('e', '2026-10-05', 'eq-03-a', ), { ...s('f', '2026-10-07', 'eq-03-a'), deleted: true }];
+  const { ctx } = fakeCtx({ ...EMPTY, clients: [client('c1')], sessions }, { role: 'trainer' });
+  let info = null;
+  await changeRole(ctx, { ask: async (i) => { info = i; return false; } });
+  assert.equal(info.days, 3, 'три різні дати; видалений запис не рахується');
+});

@@ -94,8 +94,107 @@ export function confirmDialog(text, { ok = 'Так', cancel = 'Скасуват�
   });
 }
 
+// --- Нижня панель і системне «назад» (F3) ----------------------------------------------
+
 /**
- * Нижня панель для вибору.
+ * Кроки історії нижніх панелей. Відкрита панель кладе крок (pushState тієї ж адреси з
+ * history.state.sheet = глибина; prev, menu, view копіюються). Системне «назад» знімає цей крок
+ * і закриває лише панель. Панель, закрита сама (хрестик, фон, «Зберегти»), прибирає свій крок
+ * через history.back і переносить у попередній крок зміни стану, зроблені за цей час.
+ * Зміна маршруту (onRoute) закриває всі панелі; їхні кроки, що лишились позаду, при поверненні
+ * проскакуються. env = { history } (у тестах — підроблена).
+ * → { open(dismiss) → { close() }, onPop(), onRoute(), settled() → Promise }
+ */
+export function createSheetSteps({ history: hist }) {
+  const open = []; // { depth: number|null (ще не поклала крок), dismiss, closed }
+  let pending = null; // наш history.back(), що ще не дійшов: { promise, carry, done() }
+  const cur = () => (hist.state && typeof hist.state === 'object' ? hist.state : {});
+  const depthOf = (st) => Number(st && st.sheet) || 0;
+  const withDepth = (st, d) => {
+    const next = { ...st };
+    if (d > 0) next.sheet = d; else delete next.sheet;
+    return next;
+  };
+
+  function back(carry) {
+    if (pending) pending.done();
+    let resolve;
+    const p = { promise: new Promise((r) => { resolve = r; }), carry, timer: null };
+    p.done = () => {
+      clearTimeout(p.timer);
+      if (pending === p) pending = null;
+      resolve();
+    };
+    pending = p;
+    p.timer = setTimeout(p.done, 1000); // запобіжник: popstate так і не прийшов
+    hist.back();
+  }
+
+  const settled = () => (pending ? pending.promise : Promise.resolve());
+
+  function release(s) {
+    if (s.closed) return false;
+    s.closed = true;
+    const i = open.indexOf(s);
+    if (i >= 0) open.splice(i, 1);
+    return true;
+  }
+
+  function onPop() {
+    const d = depthOf(cur());
+    if (pending) {
+      const p = pending;
+      if (p.carry && depthOf(p.carry) === d) hist.replaceState(p.carry, '');
+      p.done();
+    }
+    for (const s of [...open]) if (s.depth && s.depth > d && release(s)) s.dismiss();
+    const top = Math.max(0, ...open.map((s) => s.depth || 0));
+    if (d > top) back(withDepth(cur(), d - 1)); // крок панелі, якої вже немає
+  }
+
+  function onRoute() {
+    for (const s of [...open]) if (release(s)) s.dismiss();
+  }
+
+  function openStep(dismiss) {
+    const s = { depth: null, dismiss, closed: false };
+    open.push(s);
+    // Крок кладемо після «назад» попередньої панелі, інакше той «назад» зніме вже наш крок.
+    settled().then(() => {
+      if (s.closed) return;
+      s.depth = depthOf(cur()) + 1;
+      hist.pushState(withDepth(cur(), s.depth), '');
+    });
+    return {
+      close() {
+        if (!release(s)) return;
+        if (s.depth && depthOf(cur()) === s.depth) back(withDepth(cur(), s.depth - 1));
+      },
+    };
+  }
+
+  return { open: openStep, onPop, onRoute, settled };
+}
+
+let sheetSteps = null;
+function steps() {
+  if (sheetSteps || typeof window === 'undefined' || typeof history === 'undefined') return sheetSteps;
+  sheetSteps = createSheetSteps({ history });
+  window.addEventListener('popstate', () => sheetSteps.onPop());
+  window.addEventListener('hashchange', () => sheetSteps.onRoute());
+  return sheetSteps;
+}
+// Перезавантаження на кроці панелі — панелі вже немає, крок проскакуємо.
+if (typeof document !== 'undefined' && history.state && history.state.sheet) steps().onPop();
+
+/** Чекає, поки «назад», яким панель прибрала свій крок, дійде (app.js — перед рендером і переходом). */
+export function sheetHistorySettled() {
+  const st = steps();
+  return st ? st.settled() : Promise.resolve();
+}
+
+/**
+ * Нижня панель для вибору. Кладе крок в історію: системне «назад» закриває лише її (F3).
  * content — Node або функція (close) => Node.
  * → { el, close(), closed: Promise<void> }
  */
@@ -104,11 +203,18 @@ export function sheet(content, { title = null } = {}) {
   const closed = new Promise((r) => { resolveClosed = r; });
   let ov;
   const onKey = (e) => { if (e.key === 'Escape') close(); };
-  function close() {
-    if (!ov.isConnected) return;
+  function finish() {
+    if (!ov.isConnected) return false;
     document.removeEventListener('keydown', onKey);
     ov.remove();
     resolveClosed();
+    return true;
+  }
+  // Системне «назад» або зміна маршруту — лише прибрати панель; сама закрилась — ще й свій крок історії.
+  const st = steps();
+  const step = st ? st.open(finish) : null;
+  function close() {
+    if (finish() && step) step.close();
   }
   ov = overlay(close);
   ov.classList.add('overlay-sheet');

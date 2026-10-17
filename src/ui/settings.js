@@ -25,10 +25,15 @@ const plural = (n, one, few, many) => {
 function recordsText(info) {
   const parts = [];
   if (info.clients) parts.push(`${info.clients} ${plural(info.clients, 'клієнт', 'клієнти', 'клієнтів')}`);
-  if (info.sessions) parts.push(`${info.sessions} ${plural(info.sessions, 'день тренувань', 'дні тренувань', 'днів тренувань')}`);
+  if (info.days) parts.push(`${info.days} ${plural(info.days, 'день тренувань', 'дні тренувань', 'днів тренувань')}`);
   if (info.settings) parts.push(`${info.settings} ${plural(info.settings, 'налаштування', 'налаштування', 'налаштувань')}`);
   if (info.equipment) parts.push(`${info.equipment} ${plural(info.equipment, 'змінений тренажер', 'змінені тренажери', 'змінених тренажерів')}`);
   return parts.join(', ');
+}
+
+/** Скільки різних дат тренувань серед невидалених записів. */
+function trainingDays(sessions) {
+  return new Set((sessions || []).filter((x) => x && !x.deleted && x.date).map((x) => x.date)).size;
 }
 
 /**
@@ -77,7 +82,9 @@ export function askRoleChange(info, ctx) {
  */
 export async function changeRole(ctx, { ask = askRoleChange } = {}) {
   const state = await ctx.store.snapshot();
+  // sessions — записи вправ; у попередженні — різні дні тренувань (days).
   const info = localRecordCounts(state, state.meta || ctx.meta);
+  info.days = trainingDays(state.sessions);
   const any = Object.values(info).some((n) => n > 0);
   if (any && !(await ask(info, ctx))) return false;
   await ctx.store.clearAll();
