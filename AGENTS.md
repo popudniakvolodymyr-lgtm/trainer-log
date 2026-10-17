@@ -3,6 +3,35 @@
 
 Офлайн-застосунок для телефона: тренер і клієнти ведуть записи тренувань на тренажерах залу APOLLO NEXT 023, бачать прогрес і схеми налаштувань тренажера.
 
+## Команды
+
+- Усі тести (з кореня): `node --test`
+- Один файл: `node --test test/sync.test.js`
+- Запуск: `python -m http.server 8765 --bind 127.0.0.1` з кореня -> http://127.0.0.1:8765/
+- Збирання, npm, package.json немає. Лінтера немає.
+
+## Где что
+
+- `src/app.js` — точка входу, таблиця `routes` (хеш-маршрути, ролі), `homeFor`.
+- `src/core/` — чисті модулі без DOM (`model`, `catalog`, `sync`, `chartdata`); сюди йдуть тести з `test/`.
+- `src/store.js` — IndexedDB `trainer-log`; `src/ui/` — екрани й `dom.js`; `src/share.js` — файл через «Поділитися».
+- `src/schemes/` — SVG-схеми тренажерів; нова схема = модуль + запис у `registry.js` + `schemeId` у `src/core/catalog.js`.
+- `sw.js` — `CACHE_VERSION` і `PRECACHE`; `css/screens.css`, `css/schemes.css`, `app.css` — стилі.
+- `gym/equipment.md`, `gym/adjustments.md`, `gym/my-photos/` — вихідні дані залу, з яких зроблено каталог і схеми.
+- `brief.md` — слова автора про задачу.
+
+## Подводные камни
+
+- `node --test test/` падає (Node бере `test/` за файл) — тільки `node --test` або `node --test test/*.test.js`.
+- `node --check` не ловить синтаксичні помилки ES-модулів (читає як CommonJS) — для цього `test/modules.test.js`.
+- Новий файл у `src/`, `css/`, `icons/` -> допиши в `PRECACHE` у `sw.js` і підніми `CACHE_VERSION`, інакше падає `test/pwa.test.js`.
+- `sw.js` віддає кеш першим: після правки без підняття `CACHE_VERSION` браузер показує старі файли. Перевіряй зі свіжим профілем або знімай service worker.
+- Браузерні перевірки — лише headless Chrome через CDP зі свіжим профілем, не браузер користувача; UI тестами не покритий.
+- Екран під час `render` ще не в DOM — розміри не міряти (графік на `viewBox`).
+- Цифр регулювань не вигадувати: невідоме — `approx: true` або `unknown: true`. Жодного поля «нотатка». Без `alert/confirm` — є `confirmDialog` у `src/ui/dom.js`.
+
+Архітектура — `docs/architecture.md`, рішення — `docs/adr/`, словник — `CONTEXT.md`.
+
 ## Як здесь работает Autopilot
 
 Сборка ведётся навыком `/autopilot`. Требования, спецификация и таски — в `.autopilot/`.

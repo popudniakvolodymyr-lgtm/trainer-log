@@ -105,3 +105,37 @@ renderScheme(container, equipment, exerciseId, values, {onPick(adjustmentId)})
 ### Тестові шви
 
 `src/core/*` через `node --test`. UI перевіряється руками/браузером.
+
+## Що побудували таски
+
+### T01 — каркас
+- model: `uuid()`, `today(date?)`, `GROUPS`, `WEIGHT_MODES` (заморожені «id → назва», порядок = порядок меню), `validateSet`, `formatSet`, `formatDate`, також `formatNumber(n)`, `settingId(clientId, exerciseId, adjustmentId)`.
+- catalog: `HANDLES`, `HANDLE_ADJUSTMENT`, `seedEquipment()` → 28 тренажерів, `updatedAt:0`; id `eq-dumbbells`/`eq-bar`/`eq-cardio`; вправи `eq-NN-a`, кардіо `eq-cardio-a/b/c`.
+- store: `openStore({indexedDB?, name?, persist?})`; `all(kind, {withDeleted})` без видалених за замовчуванням; `put(kind, obj, {keepUpdatedAt})` ставить `updatedAt=now`, якщо не `keepUpdatedAt`; `putMany` зберігає переданий `updatedAt` (для імпорту); `close()`, `KINDS`, `requestPersist()`; `replaceAll` лишає `deviceId` телефона; засівання доповнює відсутні id з seed при кожному відкритті.
+- app.js: таблиця `routes` `{pattern, name, roles, own, keys, render}`; `render(container, ctx)`, `ctx = {store, meta, params, navigate(hash), rerender()}`; `homeFor(meta)`. Екрани clients/client/exercise/equipment — заготовки; таски 02/03 замінюють їхній render.
+- dom: `h`, `mount(container, ...children)`, `toast(text,{duration})`, `confirmDialog(text,{ok,cancel,danger}) → Promise<bool>`, `sheet(content | (close)=>Node, {title}) → {el, close, closed}`.
+- start.js: `renderStart`, `installHint()`, `isStandalone()`; settings.js: `renderSettings`, контейнери `#settings-exchange` / `#exchange-actions` / `#backup-actions` для таску 04.
+- schemes/index.js: `renderScheme` за контрактом + `valueLabel`, `renderAdjustmentList`, `APPROX_TEXT`.
+- Екрани: `renderClients`, `renderClient`, `renderExercise`, `renderEquipment` — `(container, ctx)` у `src/ui/<clients|client|exercise|equipment>.js`; `app.js` лише імпортує — таски 02/03 замінюють ці файли, `app.js` не чіпають.
+- Рендер іде у відокремлений `div.screen-root` і вставляється в `#view` лише якщо `renderId` ще актуальний — під час `render` контейнер ще НЕ в DOM: графік масштабується через `viewBox` (або міряє після вставки).
+- Битий хеш → головний екран ролі. `h()` створює SVG-елементи для `svg, g, path, line, rect, circle, text, title, clipPath, linearGradient, stop, marker, use, defs, tspan…`.
+- `sw.js` (`CACHE_VERSION`, `PRECACHE`) у хвилі 2 не чіпати — нові файли таски 02/03 називають у контракті, таск 04 додає їх у кеш.
+
+### T03 — схеми
+- `renderScheme(container, equipment, exerciseId, values?, {store, clientId, role, onPick, onChange}) → container`: без `values` читає зі `store`; зі `store`+`clientId` сам відкриває панель, зберігає Setting (`by=role`) і перемальовує на місці; `onPick` — лише без `store`. Також `valueLabel`, `renderAdjustmentList(eq, values, {onPick, only})`, `loadValues(store, clientId, exId)`, `APPROX_TEXT`, `SCHEMES`, `schemeFor`, `handleIcon`.
+- Модуль схеми: `{id, ADJUSTMENTS, HINTS, draw(values, adjustments) → '<svg…>'}` з `data-adj` / `data-badge`+`data-value` / `data-pos="adj:n"` / `data-opt`, `optionIcon?`. `handles.js`: `handleIcon(id,{width,height})`, `handleArt(id)`. `values.js`: `valuesFor(settings, clientId, exId)`, `makeSetting({...})`, `isSet`, `positionHint`, `activeAdjustments`, `activeExercises`.
+- `equipment-edit.js` (чисті → новий Equipment): `renameEquipment`, `setHidden`, `addEquipment({name,group,weightMode,exerciseName})`, `addExercise/renameExercise/removeExercise`, `addAdjustment({kind:'positions'|'options'|'handle'})`, `renameAdjustment`, `renameOption`, `addOption`, `setPositionCount`, `removeAdjustment`, `parseOptions`.
+- Нові файли поза кешем `sw.js`: `src/schemes/{registry,svg,values,handles,butterfly,lever-pulldown,low-row,equipment-edit}.js` — додає таск 04. На `#/equipment` ще ніщо не веде — посилання для тренера додає таск 04 у `settings.js`.
+
+### T02 — клієнти, запис, графік
+- `chartSeries(weightMode, sessions) → {series:[{key,label,unit,color,points:[{t,y,label,n}]}], yUnit}`; `t` — початок дня UTC (мс), `n` — номер підходу в дні; ключі серій `weight` | `left,right` | `extra` або `reps` | `minutes,km`; порожні серії не повертаються. Також `dateToT`, `COLORS`. `renderChart(container, result)` (viewBox 360×230; кардіо — дві осі Y), `niceTicks`, `EMPTY_TEXT`.
+- Екран вправи викликає `renderScheme(box, equipment, exercise.id, values, {onPick, store, clientId, role, rerender})`; схема зберігає сама (T03), `onPick` — запасний шлях.
+- `src/ui/log-data.js`: `listSessions, lastSet, addSet, updateSet, deleteSet, settingValues, saveSetting, clearSetting, deleteClient, recentEquipmentIds`; `src/ui/log-form.js`: `openSetForm, openSettingPicker, SET_FIELDS`. Видалення клієнта м'яко видаляє його сесії й налаштування.
+- Кнопки «Записати підхід» і «+ Додати клієнта» — фіксована нижня панель `.log-bar`.
+- Браузерна перевірка: лише headless Chrome через CDP зі свіжим профілем (як у T01) — НЕ браузер користувача.
+
+### T04 — обмін і копія
+- sync: `parsePackage(text, {role}?)` (з `role` перевіряє напрям), `buildPackage(kind, data, meta, {now}?)`, `mergeEntities → {merged, changed, added, updated, removed}`, `planImport → {error?, needsClientChoice, candidates, clientName, targetClientId, adopt, fromName, becomesRole}`, `applyImport(pkg, state, {targetClientId?, now?}) → {state, summary}` (targetClientId = id з файлу означає «Створити картку»), `selectForClient`, `selectForTrainer`, `selectBackup`, `backupDue(meta, sessions, now?)`, `summaryText`, `exchangeFileName`, `KINDS`, `BACKUP_DUE_DAYS`.
+- share: `shareFile → 'shared'|'downloaded'|'cancelled'|'blocked'`, `downloadFile`, `pickFile`. exchange: `sendToTrainer(ctx)`, `sendToClient(ctx, clientId)`, `saveBackup(ctx)`, `openFile(ctx, {expect, title})`, `sendButton(ctx, clientId)`, `backupBanner(ctx) → Promise<Node|null>`.
+- store: `applyChanges({clients?, equipment?, sessions?, settings?, meta?})` — одна транзакція, `updatedAt` як передано, `deviceId` не чіпає.
+- `sw.js`: 41 файл у PRECACHE, `CACHE_VERSION=3`.
