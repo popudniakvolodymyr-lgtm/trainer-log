@@ -5,6 +5,7 @@ import { h, mount, sheet, toast, confirmDialog } from './dom.js';
 import { uuid } from '../core/model.js';
 import { deleteClient } from './log-data.js';
 import { backupBanner } from './exchange.js';
+import { changeRoleButton } from './settings.js';
 
 const NAME_MAX = 60;
 
@@ -75,7 +76,8 @@ export async function renderClients(container, ctx) {
       h('div', { class: 'card empty-state' },
         h('h2', null, 'Додайте першого клієнта'),
         h('p', { class: 'muted' }, 'Для кожного клієнта ведуться записи підходів, графіки і налаштування тренажерів.'),
-        h('button', { class: 'btn btn-primary btn-big', type: 'button', onclick: addClient }, 'Додати клієнта'))));
+        h('button', { class: 'btn btn-primary btn-big', type: 'button', onclick: addClient }, 'Додати клієнта')),
+      h('div', { class: 'stack' }, changeRoleButton(ctx))));
     return;
   }
 
@@ -147,6 +149,7 @@ export async function renderClients(container, ctx) {
     search,
     list,
     noMatch,
+    h('div', { class: 'stack' }, changeRoleButton(ctx)),
     h('div', { class: 'log-bar' },
       h('button', { class: 'btn btn-primary btn-big', type: 'button', onclick: addClient }, '+ Додати клієнта'))));
 }

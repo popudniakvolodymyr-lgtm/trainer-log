@@ -13,6 +13,8 @@
 //              approx?: bool, unknown?: bool, deleted? }
 // Session    { id, clientId, equipmentId, exerciseId, date:'YYYY-MM-DD', sets: Set[], updatedAt, deleted? }
 // Set        single: { reps, weight } · perHand: { reps, left, right }
+//            legs: { reps, weight, leg: null|'left'|'right' } (null — дві ноги, загальна вага на платформі;
+//                  старі записи цих тренажерів у вигляді perHand { reps, left, right } читаються як були)
 //            bodyweight: { reps, extra|null } · cardio: { minutes, km|null, kcal|null }
 // Setting    { id: `${clientId}|${exerciseId}|${adjustmentId}`, clientId, equipmentId, exerciseId,
 //              adjustmentId, value, updatedAt, by:'trainer'|'client' }
@@ -54,6 +56,7 @@ export const GROUPS = Object.freeze({
 export const WEIGHT_MODES = Object.freeze({
   single: 'Одна вага',
   perHand: 'Окремо ліва і права рука',
+  legs: 'Дві ноги / одна нога',
   bodyweight: 'Власна вага (+ додаткова)',
   cardio: 'Кардіо (час, дистанція)',
 });
@@ -100,6 +103,18 @@ function positive(raw, emptyText) {
   return [n, null];
 }
 
+/** Яка нога: порожньо — дві ноги (null), інакше 'left' | 'right'. */
+function legSide(raw) {
+  if (raw === null || raw === undefined || raw === '') return [null, null];
+  if (raw === 'left' || raw === 'right') return [raw, null];
+  return [null, 'Виберіть ліву або праву ногу'];
+}
+
+/** Підхід записано до перемикача «Дві ноги / Одна нога» (як «ліва/права рука»). */
+export function isLegacyHandsSet(set) {
+  return !!set && set.weight === undefined && (set.left !== undefined || set.right !== undefined);
+}
+
 const FIELDS = {
   single: (r) => ({
     reps: reps(r.reps),
@@ -109,6 +124,11 @@ const FIELDS = {
     reps: reps(r.reps),
     left: amount(r.left, { required: true, emptyText: 'Вкажіть вагу лівої руки', max: 1000 }),
     right: amount(r.right, { required: true, emptyText: 'Вкажіть вагу правої руки', max: 1000 }),
+  }),
+  legs: (r) => ({
+    reps: reps(r.reps),
+    weight: amount(r.weight, { required: true, max: 2000 }),
+    leg: legSide(r.leg),
   }),
   bodyweight: (r) => ({
     reps: reps(r.reps),
@@ -122,7 +142,7 @@ const FIELDS = {
 };
 
 // Поля ваги, до яких застосовується крок тренажера.
-const STEP_FIELDS = { single: ['weight'], perHand: ['left', 'right'] };
+const STEP_FIELDS = { single: ['weight'], perHand: ['left', 'right'], legs: ['weight'] };
 
 /** Текст підказки, коли вага не кратна кроку. */
 export function stepText(step) {
@@ -140,7 +160,7 @@ const isMultiple = (n, step) => Math.abs(n / step - Math.round(n / step)) < 1e-9
 export function weightStep(equipment) {
   if (!equipment || equipment.group === 'dumbbells') return null;
   if (equipment.weightMode === 'single') return 5;
-  if (equipment.weightMode === 'perHand') return 2.5;
+  if (equipment.weightMode === 'perHand' || equipment.weightMode === 'legs') return 2.5;
   return null;
 }
 
@@ -175,7 +195,10 @@ export function formatNumber(n) {
   return String(Math.round(Number(n) * 100) / 100).replace('.', ',');
 }
 
-/** '10 × 40 кг' | '10 × Л 20 / П 22,5 кг' | '12 повт.' | '6 × +7,5 кг' | '30 хв · 5 км' */
+/**
+ * '10 × 40 кг' | '10 × Л 20 / П 22,5 кг' | '12 повт.' | '6 × +7,5 кг' | '30 хв · 5 км'
+ * | legs: '10 × 120 кг' (дві ноги) | '10 × 60 кг · ліва нога'
+ */
 export function formatSet(weightMode, set) {
   if (!set) return '';
   const f = formatNumber;
@@ -184,6 +207,11 @@ export function formatSet(weightMode, set) {
       return `${set.reps} × ${f(set.weight)} кг`;
     case 'perHand':
       return `${set.reps} × Л ${f(set.left)} / П ${f(set.right)} кг`;
+    case 'legs': {
+      if (isLegacyHandsSet(set)) return formatSet('perHand', set);
+      const side = set.leg === 'left' ? ' · ліва нога' : set.leg === 'right' ? ' · права нога' : '';
+      return `${set.reps} × ${f(set.weight)} кг${side}`;
+    }
     case 'bodyweight':
       return set.extra ? `${set.reps} × +${f(set.extra)} кг` : `${set.reps} повт.`;
     case 'cardio': {
@@ -202,6 +230,28 @@ export function formatDate(date) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(date || ''));
   if (!m) return String(date || '');
   return `${m[3]}.${m[2]}.${m[1]}`;
+}
+
+/**
+ * Що зникне з телефона при «Змінити роль» (W7): живі клієнти (у клієнта — крім своєї картки),
+ * підходи, налаштування і тренажери, змінені на цьому телефоні (updatedAt > 0).
+ * state = { clients, sessions, settings, equipment }, meta = { role, clientId }
+ * → { clients, sessions, settings, equipment } (кількості)
+ */
+export function localRecordCounts(state = {}, meta = {}) {
+  const live = (list) => (list || []).filter((x) => x && !x.deleted);
+  const own = meta && meta.role === 'client' ? meta.clientId : null;
+  return {
+    clients: live(state.clients).filter((c) => c.id !== own).length,
+    sessions: live(state.sessions).length,
+    settings: live(state.settings).length,
+    equipment: live(state.equipment).filter((e) => (e.updatedAt || 0) > 0).length,
+  };
+}
+
+/** Чи є на телефоні записи, які «Змінити роль» прибере. */
+export function hasLocalRecords(state, meta) {
+  return Object.values(localRecordCounts(state, meta)).some((n) => n > 0);
 }
 
 /** id налаштування клієнта для вправи й регулювання. */

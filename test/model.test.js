@@ -26,8 +26,8 @@ test('GROUPS — 9 груп у порядку меню з українським
     ['Груди', 'Ноги', 'Плечі', 'Прес', 'Руки', 'Спина', 'Гантелі', 'Турнік', 'Кардіо']);
 });
 
-test('WEIGHT_MODES — чотири типи ваги', () => {
-  assert.deepEqual(Object.keys(WEIGHT_MODES).sort(), ['bodyweight', 'cardio', 'perHand', 'single']);
+test('WEIGHT_MODES — пʼять типів ваги (W2: «Дві ноги / одна нога»)', () => {
+  assert.deepEqual(Object.keys(WEIGHT_MODES).sort(), ['bodyweight', 'cardio', 'legs', 'perHand', 'single']);
   for (const label of Object.values(WEIGHT_MODES)) assert.ok(label.length > 0);
 });
 
@@ -199,4 +199,39 @@ test('validateSet без step (гантелі) — будь-яка вага, я�
   assert.equal(validateSet('perHand', { reps: 8, left: '3', right: '7,25' }).ok, true);
   assert.equal(validateSet('perHand', { reps: 8, left: '3', right: '7' }, { step: null }).ok, true);
   assert.equal(validateSet('single', { reps: 8, weight: '42,5' }).ok, true);
+});
+
+// --- дві ноги / одна нога (spec «Правки, третя черга» W2) --------------------
+
+test('legs: дві ноги — одна загальна вага, leg:null; кома приймається', () => {
+  assert.deepEqual(validateSet('legs', { reps: '10', weight: '120' }),
+    { ok: true, set: { reps: 10, weight: 120, leg: null } });
+  assert.deepEqual(validateSet('legs', { reps: 10, weight: '122,5', leg: '' }, { step: 2.5 }),
+    { ok: true, set: { reps: 10, weight: 122.5, leg: null } });
+});
+
+test('legs: одна нога — ліва або права, інше — помилка', () => {
+  assert.deepEqual(validateSet('legs', { reps: '10', weight: '60', leg: 'left' }),
+    { ok: true, set: { reps: 10, weight: 60, leg: 'left' } });
+  assert.deepEqual(validateSet('legs', { reps: '8', weight: '55', leg: 'right' }),
+    { ok: true, set: { reps: 8, weight: 55, leg: 'right' } });
+  const bad = validateSet('legs', { reps: '8', weight: '55', leg: 'middle' });
+  assert.equal(bad.ok, false);
+  assert.ok(bad.errors.leg);
+});
+
+test('legs: вага обовʼязкова, крок дисків 2,5 кг', () => {
+  const r = validateSet('legs', { reps: '10', weight: '' });
+  assert.deepEqual(Object.keys(r.errors), ['weight']);
+  assert.deepEqual(validateSet('legs', { reps: '10', weight: '121' }, { step: 2.5 }),
+    { ok: false, errors: { weight: 'На дисках вага кроком 2,5 кг' } });
+  assert.equal(weightStep({ weightMode: 'legs', group: 'legs' }), 2.5);
+});
+
+test('legs: історія — «10 × 120 кг», «10 × 60 кг · ліва нога»; старий Л/П — як був', () => {
+  assert.equal(formatSet('legs', { reps: 10, weight: 120, leg: null }), '10 × 120 кг');
+  assert.equal(formatSet('legs', { reps: 10, weight: 60, leg: 'left' }), '10 × 60 кг · ліва нога');
+  assert.equal(formatSet('legs', { reps: 12, weight: 57.5, leg: 'right' }), '12 × 57,5 кг · права нога');
+  // записано до перемикача, коли тренажер був «ліва/права рука»
+  assert.equal(formatSet('legs', { reps: 10, left: 20, right: 22.5 }), '10 × Л 20 / П 22,5 кг');
 });

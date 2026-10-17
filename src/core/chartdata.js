@@ -5,8 +5,11 @@
 //   { series: [{ key, label, unit, color, points: [{ t, y, label, n }] }], yUnit }
 //   t — початок дня (UTC, мс), y — значення, label — підпис точки (повторення: '×10'),
 //   n — номер підходу в дні (з 1). Порожні серії не повертаються.
+//   legs: 'weight' (дві ноги), 'leg-left' / 'leg-right' (одна нога), 'left' / 'right' (старі Л/П).
 
-export const COLORS = Object.freeze({ primary: '#2f80ed', secondary: '#f2994a' });
+export const COLORS = Object.freeze({
+  primary: '#2f80ed', secondary: '#f2994a', tertiary: '#27ae60', legacyLeft: '#9b51e0', legacyRight: '#eb5757',
+});
 
 /** 'YYYY-MM-DD' → мс початку дня (UTC); null, якщо дата не схожа на дату. */
 export function dateToT(date) {
@@ -51,6 +54,22 @@ export function chartSeries(weightMode, sessions) {
         series: nonEmpty([
           makeSeries('left', 'Л — ліва рука', 'кг', COLORS.primary, side('left')),
           makeSeries('right', 'П — права рука', 'кг', COLORS.secondary, side('right')),
+        ]),
+        yUnit: 'кг',
+      };
+    }
+    case 'legs': {
+      // Дві ноги — одна серія; одна нога — ліва й права окремо; старі Л/П (до перемикача) — як були.
+      const pick = (test, key) => sets.filter((x) => test(x.set) && isNum(x.set[key]))
+        .map((x) => ({ t: x.t, y: x.set[key], label: repsLabel(x.set), n: x.n }));
+      const isNew = (set) => isNum(set.weight);
+      return {
+        series: nonEmpty([
+          makeSeries('weight', 'Дві ноги', 'кг', COLORS.primary, pick((s) => isNew(s) && !s.leg, 'weight')),
+          makeSeries('leg-left', 'Одна нога — ліва нога', 'кг', COLORS.secondary, pick((s) => isNew(s) && s.leg === 'left', 'weight')),
+          makeSeries('leg-right', 'Одна нога — права нога', 'кг', COLORS.tertiary, pick((s) => isNew(s) && s.leg === 'right', 'weight')),
+          makeSeries('left', 'Л — ліва рука', 'кг', COLORS.legacyLeft, pick((s) => !isNew(s), 'left')),
+          makeSeries('right', 'П — права рука', 'кг', COLORS.legacyRight, pick((s) => !isNew(s), 'right')),
         ]),
         yUnit: 'кг',
       };

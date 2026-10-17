@@ -61,8 +61,8 @@ test('HANDLE_ADJUSTMENT — регулювання «Ручка» з п\'ять�
     ['v-bar', 'rope', 'd-handle', 'short-bar', 'long-bar']);
 });
 
-test('CATALOG_VERSION — 3, кожен запис позначено версією', () => {
-  assert.equal(CATALOG_VERSION, 3);
+test('CATALOG_VERSION — 4, кожен запис позначено версією', () => {
+  assert.equal(CATALOG_VERSION, 4);
   for (const eq of seedEquipment()) assert.equal(eq.catalogVersion, CATALOG_VERSION, eq.id);
 });
 
@@ -106,10 +106,11 @@ test('id детерміновані й унікальні; виклики нез
   }
 });
 
-test('тип ваги: диски — №2, 4, 8, 14, 21, 22; решта тренажерів сайту — блок', () => {
+test('тип ваги: диски — №2, 14, 21, 22 (руки), №4, 8 — дві ноги / одна нога (W2); решта — блок', () => {
   const m = seed();
   for (const no of Object.keys(SITE).map(Number)) {
-    assert.equal(m[eqId(no)].weightMode, DISCS.includes(no) ? 'perHand' : 'single', `№${no}`);
+    const want = [4, 8].includes(no) ? 'legs' : DISCS.includes(no) ? 'perHand' : 'single';
+    assert.equal(m[eqId(no)].weightMode, want, `№${no}`);
   }
 });
 
@@ -151,12 +152,40 @@ test('№22 — сидіння 5 ⚠ і хват трьома кольорами
   for (const o of a.grip.options) assert.match(o.color, /^#[0-9a-f]{6}$/i);
 });
 
-test('№21 — позиція ручки (2 варіанти) + притискний валік', () => {
+test('№21 і №14 — хват ручки-Г «Прямий» / «Під 90°» (W4), ті самі id варіантів', () => {
+  for (const no of [21, 14]) {
+    const grip = adjOf(no)['grip-pos'];
+    assert.equal(grip.kind, 'options', `№${no}`);
+    assert.equal(grip.label, 'Хват', `№${no}`);
+    assert.deepEqual(grip.options.map((o) => [o.id, o.label]), [['pos-1', 'Прямий'], ['pos-2', 'Під 90°']], `№${no}`);
+  }
+});
+
+test('№7 — «Важіль» і «Валік», по 5 позицій ⚠ (W1)', () => {
+  assert.deepEqual(seed()['eq-07'].adjustments, [
+    { id: 'lever', label: 'Важіль', kind: 'positions', count: 5, approx: true },
+    { id: 'roller', label: 'Валік', kind: 'positions', count: 5, approx: true },
+  ]);
+});
+
+test('Турнік — схема pullup-bar і хват «Звичайний / Широкий / Обратний» (W6)', () => {
+  const bar = seed()['eq-bar'];
+  assert.equal(bar.schemeId, 'pullup-bar');
+  assert.equal(bar.weightMode, 'bodyweight');
+  assert.deepEqual(bar.exercises, [{ id: 'eq-bar-a', name: 'Підтягування' }]);
+  assert.equal(bar.adjustments.length, 1);
+  const grip = bar.adjustments[0];
+  assert.equal(grip.id, 'grip');
+  assert.equal(grip.kind, 'options');
+  assert.deepEqual(grip.options.map((o) => [o.id, o.label]),
+    [['normal', 'Звичайний'], ['wide', 'Широкий'], ['reverse', 'Обратний']]);
+});
+
+test('№21 — хват (2 варіанти) + притискний валік', () => {
   const a = Object.values(adjOf(21));
   assert.equal(a.length, 2);
   const grip = a.find((x) => x.kind === 'options');
   assert.equal(grip.options.length, 2);
-  assert.deepEqual(grip.options.map((o) => o.label), ['Ширше', 'Вужче']);
   const roller = a.find((x) => x.kind === 'positions');
   assert.match(roller.label, /валік/i);
   assert.equal(roller.count, 5);
@@ -176,8 +205,8 @@ test('регулювання за списком П3/П6: №2, 25, 26, 12, 14, 
   assert.equal(a14.find((a) => a.kind === 'options').options.length, 2);
   assert.equal(a14.find((a) => a.kind === 'positions').label, 'Висота сидіння');
   assert.equal(a14.length, 2);
-  assert.deepEqual(kinds(7), ['positions']);
-  assert.match(Object.values(adjOf(7))[0].label, /валик/i);
+  assert.deepEqual(kinds(7), ['positions', 'positions']);
+  assert.match(adjOf(7).roller.label, /валік/i);
   const a10 = Object.values(adjOf(10)).map((a) => a.label.toLowerCase());
   assert.equal(a10.length, 3);
   assert.ok(a10.some((l) => l.includes('валік')) && a10.some((l) => l.includes('нахил')) && a10.some((l) => l.includes('спинка')));
@@ -194,7 +223,7 @@ test('регулювання за списком П3/П6: №2, 25, 26, 12, 14, 
 test('решта тренажерів — без регулювань', () => {
   const withAdj = [2, 3, 7, 10, 12, 14, 21, 22, 25, 26];
   for (const eq of seedEquipment()) {
-    if (withAdj.includes(eq.siteNo)) continue;
+    if (withAdj.includes(eq.siteNo) || eq.id === 'eq-bar') continue;
     assert.deepEqual(eq.adjustments, [], eq.id);
   }
 });

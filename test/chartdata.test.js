@@ -89,3 +89,53 @@ test('порожньо: немає сесій або всі видалені →
   assert.deepEqual(chartSeries('single', [del]).series, []);
   assert.deepEqual(chartSeries('single', [session('2026-10-17', [])]).series, []);
 });
+
+// --- дві ноги / одна нога (spec «Правки, третя черга» W2) --------------------
+
+test('legs: дві ноги — одна серія загальної ваги', () => {
+  const res = chartSeries('legs', [
+    session('2026-10-17', [{ reps: 10, weight: 120, leg: null }, { reps: 8, weight: 130, leg: null }]),
+    session('2026-10-10', [{ reps: 10, weight: 110, leg: null }]),
+  ]);
+  assert.equal(res.yUnit, 'кг');
+  assert.equal(res.series.length, 1);
+  assert.deepEqual(res.series[0].points.map((p) => p.y), [110, 120, 130]);
+  assert.deepEqual(res.series[0].points.map((p) => p.label), ['×10', '×10', '×8']);
+});
+
+test('legs: одна нога — ліва й права окремими серіями своїх кольорів, поруч з двома ногами', () => {
+  const res = chartSeries('legs', [
+    session('2026-10-17', [
+      { reps: 10, weight: 120, leg: null },
+      { reps: 10, weight: 60, leg: 'left' },
+      { reps: 10, weight: 62.5, leg: 'right' },
+      { reps: 8, weight: 65, leg: 'left' },
+    ]),
+  ]);
+  assert.equal(res.series.length, 3);
+  const both = res.series.find((s) => s.points.some((p) => p.y === 120));
+  const left = res.series.find((s) => /ліва нога/.test(s.label));
+  const right = res.series.find((s) => /права нога/.test(s.label));
+  assert.ok(both && left && right);
+  assert.deepEqual(both.points.map((p) => p.y), [120]);
+  assert.deepEqual(left.points.map((p) => p.y), [60, 65]);
+  assert.deepEqual(right.points.map((p) => p.y), [62.5]);
+  assert.equal(new Set(res.series.map((s) => s.color)).size, 3, 'три різні кольори');
+  assert.equal(new Set(res.series.map((s) => s.key)).size, 3);
+});
+
+test('legs: старі записи Л/П на цих тренажерах — як були (дві серії Л і П)', () => {
+  const res = chartSeries('legs', [
+    session('2026-10-10', [{ reps: 8, left: 17.5, right: 20 }]),
+    session('2026-10-17', [{ reps: 10, weight: 120, leg: null }]),
+  ]);
+  const l = res.series.find((s) => s.key === 'left');
+  const r = res.series.find((s) => s.key === 'right');
+  assert.deepEqual(l.points.map((p) => p.y), [17.5]);
+  assert.deepEqual(r.points.map((p) => p.y), [20]);
+  assert.match(l.label, /Л/);
+  assert.match(r.label, /П/);
+  const both = res.series.find((s) => s.key !== 'left' && s.key !== 'right');
+  assert.deepEqual(both.points.map((p) => p.y), [120]);
+  assert.equal(res.series.length, 3);
+});

@@ -2,7 +2,7 @@
 //
 // openStore() → Promise<Store>
 // Store: getMeta(), setMeta(patch), all(kind, {withDeleted}), get(kind, id), put(kind, obj),
-//        putMany(kind, objs), remove(kind, id), snapshot(), replaceAll(snapshot)
+//        putMany(kind, objs), remove(kind, id), snapshot(), replaceAll(snapshot), clearAll()
 // kind: 'clients' | 'equipment' | 'sessions' | 'settings'
 
 import { uuid } from './core/model.js';
@@ -182,6 +182,20 @@ export async function openStore({
         os.clear();
         for (const rec of snap[kind] || []) os.put(rec);
       }
+      await done(tx);
+      await upgradeCatalog();
+    },
+
+    /**
+     * Чисте сховище («Змінити роль»): прибирає всі записи й метадані (роль, клієнт, псевдоніми),
+     * лишає deviceId телефона і заново засіває стартовий каталог. Викликати лише після
+     * підтвердження користувача (settings.changeRole).
+     */
+    async clearAll() {
+      const cur = (await getMeta()) || DEFAULT_META();
+      const tx = db.transaction([META, ...KINDS], 'readwrite');
+      tx.objectStore(META).put({ ...DEFAULT_META(), deviceId: cur.deviceId }, META_KEY);
+      for (const kind of KINDS) tx.objectStore(kind).clear();
       await done(tx);
       await upgradeCatalog();
     },

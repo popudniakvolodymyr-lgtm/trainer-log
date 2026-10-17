@@ -23,8 +23,10 @@ export const HANDLE_ADJUSTMENT = Object.freeze({
 });
 
 /** Версія стартового каталогу; запис із меншою catalogVersion оновлює upgradeEquipment. */
-// 1 — перший засів; 2 — правки (П1–П9); 3 — кардіо отримує схему «cardio» (Q8).
-export const CATALOG_VERSION = 3;
+// 1 — перший засів; 2 — правки (П1–П9); 3 — кардіо отримує схему «cardio» (Q8);
+// 4 — третя черга: №4/№8 «дві ноги / одна нога» (W2), №7 важіль + валік (W1), ручки-Г на №14/№21 (W4),
+//     турнік — схема й хват (W6).
+export const CATALOG_VERSION = 4;
 
 const pad2 = (n) => String(n).padStart(2, '0');
 
@@ -38,13 +40,24 @@ const handleAdjustment = () => ({
 // Кількість позицій — 5 «⚠ приблизно», поки не уточнено в залі (spec «Правки» П6).
 const positions = (id, label) => ({ id, label, kind: 'positions', count: 5, approx: true });
 const seat = () => positions('seat', 'Висота сидіння');
-// Дві позиції ручки; назви умовні — тренер перейменовує.
-const twoGrips = (labels) => ({
+// Ручки буквою Г (W4): за горизонтальну частину — «Прямий», за вертикальну — «Під 90°».
+// id варіантів ті самі, що в «Позиції ручки» версій 2–3 (pos-1 / pos-2) — збережені значення не губляться.
+const lGrips = () => ({
   id: 'grip-pos',
-  label: 'Позиція ручки',
+  label: 'Хват',
   kind: 'options',
-  approx: true,
-  options: [{ id: 'pos-1', label: labels[0] }, { id: 'pos-2', label: labels[1] }],
+  options: [{ id: 'pos-1', label: 'Прямий' }, { id: 'pos-2', label: 'Під 90°' }],
+});
+// Турнік (W6): хват на перекладині.
+const barGrips = () => ({
+  id: 'grip',
+  label: 'Хват',
+  kind: 'options',
+  options: [
+    { id: 'normal', label: 'Звичайний' },
+    { id: 'wide', label: 'Широкий' },
+    { id: 'reverse', label: 'Обратний' },
+  ],
 });
 // Три позиції хвату (зелена / червона / помаранчева) — з №21 версії 1, тепер на №22 (П2).
 const threeGrips = () => ({
@@ -73,13 +86,13 @@ const SITE = [
     ],
     adjustments: () => [positions('handles-pos', 'Позиція ручок'), seat()],
   }],
-  [4, 'Жим ногами лежачи', 'legs', 'perHand', { schemeId: 'leg-press' }],
+  [4, 'Жим ногами лежачи', 'legs', 'legs', { schemeId: 'leg-press' }],
   [5, 'Жим ногами сидячи', 'legs', 'single', { schemeId: 'seated-leg-press', hidden: true }],
   [6, 'Зведення ніг у тренажері', 'legs', 'single', { schemeId: 'hip-adduction' }],
   [7, 'Згинання ніг лежачи на тренажері', 'legs', 'single', {
-    schemeId: 'leg-curl', adjustments: () => [positions('roller', 'Позиція валика')],
+    schemeId: 'leg-curl', adjustments: () => [positions('lever', 'Важіль'), positions('roller', 'Валік')],
   }],
-  [8, 'Присідання в тренажері «Гак-машина»', 'legs', 'perHand', { schemeId: 'hack-squat' }],
+  [8, 'Присідання в тренажері «Гак-машина»', 'legs', 'legs', { schemeId: 'hack-squat' }],
   [9, 'Розведення ніг у тренажері', 'legs', 'single', { schemeId: 'hip-abduction' }],
   [10, 'Розгинання ніг у тренажері', 'legs', 'single', {
     schemeId: 'leg-extension',
@@ -94,7 +107,7 @@ const SITE = [
   }],
   [13, 'Жим у блоці', 'shoulders', 'single', { schemeId: 'cable-shoulder-press', hidden: true }],
   [14, 'Жим у тренажері сидячи', 'shoulders', 'perHand', {
-    schemeId: 'plate-shoulder-press', adjustments: () => [twoGrips(['Позиція 1', 'Позиція 2']), seat()],
+    schemeId: 'plate-shoulder-press', adjustments: () => [lGrips(), seat()],
   }],
   [15, 'Ротація на прес', 'abs', 'single', {
     name: 'Прес',
@@ -110,7 +123,7 @@ const SITE = [
   [20, 'Підтягування в гравітроні', 'arms', 'single', { schemeId: 'assisted-pullup', rare: true }],
   [21, 'Вертикальна тяга в силовому тренажері', 'back', 'perHand', {
     schemeId: 'lever-pulldown',
-    adjustments: () => [twoGrips(['Ширше', 'Вужче']), positions('roller', 'Притискний валік')],
+    adjustments: () => [lGrips(), positions('roller', 'Притискний валік')],
   }],
   [22, 'Горизонтальна тяга у силовому тренажері', 'back', 'perHand', {
     schemeId: 'lever-row', adjustments: () => [seat(), threeGrips()],
@@ -142,7 +155,7 @@ const DUMBBELLS = [
   ['squat', 'Присідання з гантеллю'],
 ];
 
-const extra = (id, name, group, weightMode, exercises, schemeId, version) => ({
+const extra = (id, name, group, weightMode, exercises, schemeId, version, adjustments = []) => ({
   id,
   name,
   siteName: null,
@@ -150,7 +163,7 @@ const extra = (id, name, group, weightMode, exercises, schemeId, version) => ({
   group,
   weightMode,
   exercises: exercises.map((exName, i) => ({ id: `${id}-${'abcdefgh'[i]}`, name: exName })),
-  adjustments: [],
+  adjustments,
   schemeId,
   ...(version ? { catalogVersion: version } : {}),
   updatedAt: 0,
@@ -180,7 +193,7 @@ export function seedEquipment() {
     list.push(extra(`eq-db-${slug}`, name, 'dumbbells', 'perHand', [name], `db-${slug}`, CATALOG_VERSION));
   }
   list.push(
-    extra('eq-bar', 'Турнік', 'bar', 'bodyweight', ['Підтягування'], null, CATALOG_VERSION),
+    extra('eq-bar', 'Турнік', 'bar', 'bodyweight', ['Підтягування'], 'pullup-bar', CATALOG_VERSION, [barGrips()]),
     extra('eq-cardio', 'Кардіо', 'cardio', 'cardio', ['Бігова доріжка', 'Велотренажер', 'Еліпс'], 'cardio', CATALOG_VERSION),
   );
   return list;
@@ -228,17 +241,40 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const byIdMap = (list) => new Map((list || []).map((x) => [x.id, x]));
 
 /**
- * Злиття списку (вправи або регулювання) за id: що тренер не змінював відносно старого
- * каталогу — береться з нового; змінене або додане тренером — лишається; прибране каталогом —
+ * Регулювання, яке тренер змінив: поле за полем — чого тренер не чіпав, береться з нового
+ * каталогу; варіанти — так само, кожен окремо (перейменований тренером лишається його).
+ * Змінився вид регулювання (позиції ↔ варіанти) — лишається тренерове як є.
+ */
+function mergeAdjustment(c, o, s) {
+  if (c.kind !== o.kind || o.kind !== s.kind) return c;
+  const out = { ...c };
+  for (const k of new Set([...Object.keys(o), ...Object.keys(s)])) {
+    if (k === 'id' || k === 'options' || !same(c[k], o[k])) continue;
+    if (s[k] === undefined) delete out[k];
+    else out[k] = s[k];
+  }
+  if (Array.isArray(s.options) && Array.isArray(c.options)) {
+    out.options = mergeList(c.options, o.options || [], s.options, () => true);
+  }
+  return out;
+}
+
+/**
+ * Злиття списку (вправи, регулювання, варіанти) за id: що тренер не змінював відносно старого
+ * каталогу — береться з нового; змінене тренером — mergeItem(тренерове, старе, нове) (за
+ * замовчуванням лишається тренерове); додане тренером — лишається; прибране каталогом —
  * зникає, якщо keep(id) не каже лишити (на нього є записи чи налаштування).
  */
-function mergeList(current, oldSeed, newSeed, keep) {
+function mergeList(current, oldSeed, newSeed, keep, mergeItem = (c) => c) {
   const cur = byIdMap(current);
   const old = byIdMap(oldSeed);
   const out = [];
   for (const s of newSeed) {
     const c = cur.get(s.id);
-    if (c) out.push(old.has(s.id) && same(c, old.get(s.id)) ? s : c);
+    if (c) {
+      const o = old.get(s.id);
+      out.push(!o ? c : same(c, o) ? s : mergeItem(c, o, s));
+    }
     else if (!old.has(s.id)) out.push(s);
     // був у старому каталозі, а в тренера його немає — тренер прибрав, не повертаємо
   }
@@ -265,8 +301,13 @@ export function upgradeEquipment(equipment, { sessions = [], settings = [] } = {
   const cur = byIdMap(equipment);
   const seedsV1 = byIdMap(seedV1());
   const seedsV2 = byIdMap(seedV2());
+  const seedsV3 = byIdMap(seedV3());
   // База «що тренер не змінював» — каталог тієї версії, з якої запис прийшов.
-  const baseOf = (e) => ((e.catalogVersion || 0) >= 2 ? seedsV2 : seedsV1);
+  const baseOf = (e) => {
+    const v = e.catalogVersion || 0;
+    if (v >= 3) return seedsV3;
+    return v === 2 ? seedsV2 : seedsV1;
+  };
   const live = (list) => (list || []).filter((x) => !x.deleted);
   const usedEx = new Set([...live(sessions), ...live(settings)].map((s) => s.exerciseId));
   const usedAdj = new Set(live(settings).map((s) => `${s.equipmentId}|${s.adjustmentId}`));
@@ -289,7 +330,8 @@ export function upgradeEquipment(equipment, { sessions = [], settings = [] } = {
       weightMode: s.weightMode,
       schemeId: s.schemeId,
       exercises: mergeList(c.exercises, o.exercises, s.exercises, (id) => usedEx.has(id)),
-      adjustments: mergeList(c.adjustments, o.adjustments, s.adjustments, (id) => usedAdj.has(`${c.id}|${id}`)),
+      adjustments: mergeList(c.adjustments, o.adjustments, s.adjustments,
+        (id) => usedAdj.has(`${c.id}|${id}`), mergeAdjustment),
       catalogVersion: CATALOG_VERSION,
     };
     // «Сховати» тренер ставить явно (hidden: true/false); поля немає — бере каталог.
@@ -314,11 +356,121 @@ export function upgradeEquipment(equipment, { sessions = [], settings = [] } = {
   return changed;
 }
 
-// --- каталог версії 2: база для оновлення 2 → 3 ----------------------------------------
-// Версія 2 = поточний каталог, але кардіо ще без схеми. Наступна версія каталогу — зафіксуй
-// тут точну копію версії 2 (а не похідну від seedEquipment), якщо міняєш щось іще.
+// --- каталог версії 3: база для оновлення 3 → 4 ----------------------------------------
+// Не міняти: точна копія того, що засівала версія 3 (а не похідна від seedEquipment).
+// Наступна версія каталогу — так само зафіксуй тут копію версії 4.
+
+const V3_POS = (id, label) => ({ id, label, kind: 'positions', count: 5, approx: true });
+const V3_SEAT = () => V3_POS('seat', 'Висота сидіння');
+const V3_TWO_GRIPS = (a, b) => ({
+  id: 'grip-pos', label: 'Позиція ручки', kind: 'options', approx: true,
+  options: [{ id: 'pos-1', label: a }, { id: 'pos-2', label: b }],
+});
+const V3_THREE_GRIPS = () => ({
+  id: 'grip', label: 'Хват', kind: 'options',
+  options: [
+    { id: 'green', label: 'Верх', color: '#2e9d4f' },
+    { id: 'red', label: 'Вигин', color: '#d63b3b' },
+    { id: 'orange', label: 'Низ', color: '#f08a1c' },
+  ],
+});
+const V3_HANDLE = () => ({
+  id: 'handle', label: 'Ручка', kind: 'options',
+  options: [
+    { id: 'v-bar', label: 'V-подібна' }, { id: 'rope', label: 'Канат' },
+    { id: 'd-handle', label: 'Одинарна D-ручка' }, { id: 'short-bar', label: 'Коротка пряма' },
+    { id: 'long-bar', label: 'Довга пряма' },
+  ],
+});
+
+// [№, назва з сайту, група, тип ваги, schemeId, особливе {name, exercises, adjustments, hidden, rare}]
+const SITE_V3 = [
+  [1, 'Жим у блоці', 'chest', 'single', 'cable-chest-press', { hidden: true }],
+  [2, 'Жим у тренажері', 'chest', 'perHand', 'plate-chest-press', { adjustments: () => [V3_SEAT()] }],
+  [3, 'Зведення рук у тренажері', 'chest', 'single', 'butterfly', {
+    name: 'Метелик',
+    exercises: [{ id: 'eq-03-a', name: 'Зведення рук' }, { id: 'eq-03-b', name: 'Відведення рук назад' }],
+    adjustments: () => [V3_POS('handles-pos', 'Позиція ручок'), V3_SEAT()],
+  }],
+  [4, 'Жим ногами лежачи', 'legs', 'perHand', 'leg-press', {}],
+  [5, 'Жим ногами сидячи', 'legs', 'single', 'seated-leg-press', { hidden: true }],
+  [6, 'Зведення ніг у тренажері', 'legs', 'single', 'hip-adduction', {}],
+  [7, 'Згинання ніг лежачи на тренажері', 'legs', 'single', 'leg-curl', {
+    adjustments: () => [V3_POS('roller', 'Позиція валика')],
+  }],
+  [8, 'Присідання в тренажері «Гак-машина»', 'legs', 'perHand', 'hack-squat', {}],
+  [9, 'Розведення ніг у тренажері', 'legs', 'single', 'hip-abduction', {}],
+  [10, 'Розгинання ніг у тренажері', 'legs', 'single', 'leg-extension', {
+    adjustments: () => [V3_POS('roller', 'Валік'), V3_POS('tilt', 'Нахил'), V3_POS('backrest', 'Спинка (вперед-назад)')],
+  }],
+  [12, 'Відведення рук у тренажері сидячи', 'shoulders', 'single', 'lateral-raise', { adjustments: () => [V3_SEAT()] }],
+  [13, 'Жим у блоці', 'shoulders', 'single', 'cable-shoulder-press', { hidden: true }],
+  [14, 'Жим у тренажері сидячи', 'shoulders', 'perHand', 'plate-shoulder-press', {
+    adjustments: () => [V3_TWO_GRIPS('Позиція 1', 'Позиція 2'), V3_SEAT()],
+  }],
+  [15, 'Ротація на прес', 'abs', 'single', 'ab-station', {
+    name: 'Прес',
+    exercises: [{ id: 'eq-15-a', name: 'Ротація на прес' }, { id: 'eq-15-b', name: 'Скручування на прес' }],
+  }],
+  [17, 'Віджимання в гравітроні', 'arms', 'single', 'assisted-dip', { rare: true }],
+  [18, 'Жим на трицепс', 'arms', 'single', 'triceps-press', {}],
+  [19, 'Згинання рук у блоці', 'arms', 'single', 'cable-curl', { rare: true }],
+  [20, 'Підтягування в гравітроні', 'arms', 'single', 'assisted-pullup', { rare: true }],
+  [21, 'Вертикальна тяга в силовому тренажері', 'back', 'perHand', 'lever-pulldown', {
+    adjustments: () => [V3_TWO_GRIPS('Ширше', 'Вужче'), V3_POS('roller', 'Притискний валік')],
+  }],
+  [22, 'Горизонтальна тяга у силовому тренажері', 'back', 'perHand', 'lever-row', {
+    adjustments: () => [V3_SEAT(), V3_THREE_GRIPS()],
+  }],
+  [23, 'Розгинання в блоці', 'back', 'single', 'cable-extension', { hidden: true }],
+  [24, 'Тяга в блоці', 'back', 'single', 'cable-pull', {}],
+  [25, 'Тяга вертикального блоку', 'back', 'single', 'lat-pulldown', {
+    adjustments: () => [V3_HANDLE(), V3_POS('roller', 'Притискний валік')],
+  }],
+  [26, 'Тяга горизонтального блоку', 'back', 'single', 'low-row', { adjustments: () => [V3_HANDLE()] }],
+];
+
+const DUMBBELLS_V3 = [
+  ['curl', 'Біцепс стоячи'], ['bench-curl', 'Біцепс сидячи на лаві'], ['hammer', 'Молотки'],
+  ['lateral', 'Махи в сторони'], ['front', 'Підйом перед собою'], ['press', 'Жим гантелей лежачи'],
+  ['fly', 'Розведення гантелей лежачи'], ['seated-press', 'Жим гантелей сидячи'],
+  ['row', 'Тяга гантелі в нахилі'], ['overhead', 'Розгинання з-за голови'],
+  ['lunge', 'Випади з гантелями'], ['squat', 'Присідання з гантеллю'],
+];
+
+function seedV3() {
+  const list = SITE_V3.map(([no, siteName, group, weightMode, schemeId, sp]) => {
+    const id = `eq-${pad2(no)}`;
+    return {
+      id,
+      name: sp.name || siteName,
+      siteName,
+      siteNo: no,
+      group,
+      weightMode,
+      exercises: sp.exercises ? sp.exercises.map((x) => ({ ...x })) : [{ id: `${id}-a`, name: siteName }],
+      adjustments: sp.adjustments ? sp.adjustments() : [],
+      schemeId,
+      ...(sp.hidden ? { hidden: true } : {}),
+      ...(sp.rare ? { rare: true } : {}),
+      catalogVersion: 3,
+      updatedAt: 0,
+    };
+  });
+  for (const [slug, name] of DUMBBELLS_V3) {
+    list.push(extra(`eq-db-${slug}`, name, 'dumbbells', 'perHand', [name], `db-${slug}`, 3));
+  }
+  list.push(
+    extra('eq-bar', 'Турнік', 'bar', 'bodyweight', ['Підтягування'], null, 3),
+    extra('eq-cardio', 'Кардіо', 'cardio', 'cardio', ['Бігова доріжка', 'Велотренажер', 'Еліпс'], 'cardio', 3),
+  );
+  return list;
+}
+
+// --- каталог версії 2: база для оновлення 2 → 4 ----------------------------------------
+// Версія 2 = версія 3, але кардіо ще без схеми.
 function seedV2() {
-  return seedEquipment().map((e) => (e.id === 'eq-cardio'
+  return seedV3().map((e) => (e.id === 'eq-cardio'
     ? { ...e, schemeId: null, catalogVersion: 2 }
     : { ...e, catalogVersion: 2 }));
 }

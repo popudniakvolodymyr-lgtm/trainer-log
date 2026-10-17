@@ -1,7 +1,7 @@
 // Форми журналу: запис/правка підходу (нижня панель) і вибір значення регулювання.
 
 import { h, sheet, toast, confirmDialog } from './dom.js';
-import { validateSet, formatNumber } from '../core/model.js';
+import { validateSet, formatNumber, isLegacyHandsSet } from '../core/model.js';
 import { APPROX_TEXT } from '../schemes/index.js';
 
 const REPS = { key: 'reps', label: 'Повторення', step: 1, mode: 'numeric' };
@@ -12,6 +12,8 @@ export const SET_FIELDS = {
   perHand: [REPS,
     { key: 'left', label: 'Л — ліва рука, кг', step: 0.5 },
     { key: 'right', label: 'П — права рука, кг', step: 0.5 }],
+  // Жим ногами / гак-машина: одна вага на платформі; «Одна нога» — ще вибір лівої / правої.
+  legs: [REPS, { key: 'weight', label: 'Вага, кг', step: 0.5 }],
   bodyweight: [REPS, { key: 'extra', label: 'Додаткова вага, кг (необов\'язково)', step: 0.5 }],
   cardio: [
     { key: 'minutes', label: 'Тривалість, хв', step: 1, mode: 'decimal' },
@@ -36,17 +38,65 @@ const STEPPED = new Set(['weight', 'left', 'right']);
 const snap = (v, step) => (typeof v === 'number' && step ? Math.round(Math.round(v / step) * step * 100) / 100 : v);
 
 /**
+ * Перемикач з кількох кнопок (стилі вкладок вправ). → { el, set(value) }
+ * options: [[value, 'Текст'], …]
+ */
+function segmented(label, options, value, onChange) {
+  const buttons = options.map(([v, text]) => h('button', {
+    class: 'ex-tab', type: 'button', role: 'radio', dataset: { value: v },
+    style: { border: '0', font: 'inherit', cursor: 'pointer' },
+    onclick: () => { set(v); onChange(v); },
+  }, text));
+  function set(v) {
+    for (const b of buttons) {
+      const on = b.dataset.value === v;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
+      b.style.background = on ? '' : 'transparent';
+    }
+  }
+  set(value);
+  return { el: h('div', { class: 'ex-switch', role: 'radiogroup', 'aria-label': label }, buttons), set };
+}
+
+/**
  * Відкриває панель підходу.
  * opts: { weightMode, step?: 5|2.5|null (крок ваги тренажера), initial: Set|null, title,
  *         onSave(set) → Promise, onDelete?() → Promise, allowAgain? }
  * Підставлені значення — з initial (у новому підході вага — найближче кратне кроку);
  * кнопки ваги −крок/+крок; невірне введення лишається в полях, підказка під полем.
+ * weightMode 'legs': перемикач «Дві ноги / Одна нога» (+ «Ліва / Права»); стартовий вибір —
+ * як в initial (останній підхід клієнта на цьому тренажері). Правка старого підходу «Л/П»
+ * (до перемикача) — у старій формі з двома полями, щоб нічого не загубилось.
  */
 export function openSetForm({
-  weightMode, step = null, initial = null, title, onSave, onDelete = null, allowAgain = false,
+  weightMode, step = null, initial: given = null, title, onSave, onDelete = null, allowAgain = false,
 }) {
-  const fields = (SET_FIELDS[weightMode] || []).map((f) => (step && STEPPED.has(f.key) ? { ...f, step, snap: true } : f));
   const isNew = !onDelete;
+  const legacyEdit = weightMode === 'legs' && !isNew && isLegacyHandsSet(given);
+  const mode = legacyEdit ? 'perHand' : weightMode;
+  let initial = given;
+  if (mode === 'legs' && isLegacyHandsSet(given)) {
+    // Новий підхід після старого «Л/П»: загальна вага на платформі — сума сторін.
+    const sum = (Number(given.left) || 0) + (Number(given.right) || 0);
+    initial = { reps: given.reps, weight: sum || null, leg: null };
+  }
+  const fields = (SET_FIELDS[mode] || []).map((f) => (step && STEPPED.has(f.key) ? { ...f, step, snap: true } : f));
+
+  // «Дві ноги» (leg = null) | «Одна нога» + сторона.
+  let leg = initial && (initial.leg === 'left' || initial.leg === 'right') ? initial.leg : null;
+  let side = leg || 'left';
+  let legRows = null;
+  if (mode === 'legs') {
+    const sideSwitch = segmented('Яка нога', [['left', 'Ліва'], ['right', 'Права']], side, (v) => { side = v; leg = v; });
+    const showSide = () => { sideSwitch.el.style.display = leg ? '' : 'none'; };
+    const legsSwitch = segmented('Скільки ніг', [['both', 'Дві ноги'], ['one', 'Одна нога']], leg ? 'one' : 'both', (v) => {
+      leg = v === 'one' ? side : null;
+      showSide();
+    });
+    showSide();
+    legRows = h('div', { class: 'log-field' }, legsSwitch.el, sideSwitch.el);
+  }
   const startValue = (f) => {
     if (!initial) return '';
     const v = initial[f.key];
@@ -85,7 +135,7 @@ export function openSetForm({
         input,
         h('button', { class: 'btn log-step', type: 'button', 'aria-label': f.snap ? `Більше на ${formatNumber(f.step)} кг` : 'Більше', onclick: () => bump(1) },
           f.snap ? `+${formatNumber(f.step)}` : '+')),
-      weightMode === 'perHand' && f.key === 'right'
+      mode === 'perHand' && f.key === 'right'
         ? h('button', {
           class: 'btn log-copy', type: 'button',
           onclick: () => { inputs.right.value = inputs.left.value; errors.right.textContent = ''; },
@@ -98,10 +148,11 @@ export function openSetForm({
   function collect() {
     const raw = {};
     for (const f of fields) raw[f.key] = inputs[f.key].value;
+    if (mode === 'legs') raw.leg = leg;
     // Правка старого підходу, де вагу не міняли (записано до кроку 5 / 2,5 кг), — не блокуємо.
     const keptOld = !isNew && initial && fields.filter((f) => f.snap)
       .every((f) => toNumber(inputs[f.key].value) === initial[f.key]);
-    const res = validateSet(weightMode, raw, { step: keptOld ? null : step });
+    const res = validateSet(mode, raw, { step: keptOld ? null : step });
     for (const f of fields) {
       const msg = res.ok ? '' : (res.errors[f.key] || '');
       errors[f.key].textContent = msg;
@@ -135,6 +186,7 @@ export function openSetForm({
     class: 'form log-form', novalidate: true,
     onsubmit: (e) => { e.preventDefault(); submit(false); },
   },
+  legRows,
   rows,
   h('button', { class: 'btn btn-primary btn-big', type: 'submit' }, 'Зберегти'),
   allowAgain

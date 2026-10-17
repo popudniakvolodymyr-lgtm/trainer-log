@@ -183,13 +183,89 @@ test('змінені тренером №16 і старі «Гантелі» н�
   assert.equal(byId['eq-16'].name, 'Скручування (моє)');
 });
 
-// --- версія 2 → 3: кардіо отримує схему (spec «Правки, друга черга» Q8) ---------------------
-// Запис v2 — як його засівала версія 2 каталогу: усе як зараз, лише кардіо без схеми.
-const V2 = () => seedEquipment().map((e) => (e.id === 'eq-cardio'
+// --- версія 3: заморожена копія (як її засівала версія 3 каталогу; не з коду під тестом) ------
+const pos5 = (id, label) => ({ id, label, kind: 'positions', count: 5, approx: true });
+const SEAT3 = () => pos5('seat', 'Висота сидіння');
+const GRIPPOS3 = (a, b) => ({
+  id: 'grip-pos', label: 'Позиція ручки', kind: 'options', approx: true,
+  options: [{ id: 'pos-1', label: a }, { id: 'pos-2', label: b }],
+});
+const GRIP3 = () => ({
+  id: 'grip', label: 'Хват', kind: 'options', options: [
+    { id: 'green', label: 'Верх', color: '#2e9d4f' },
+    { id: 'red', label: 'Вигин', color: '#d63b3b' },
+    { id: 'orange', label: 'Низ', color: '#f08a1c' },
+  ],
+});
+const m3 = (no, name, group, weightMode, schemeId, more = {}) => {
+  const id = `eq-${String(no).padStart(2, '0')}`;
+  const { adjustments = [], exercises = [{ id: `${id}-a`, name }], display = name, hidden, rare } = more;
+  return {
+    id, name: display, siteName: name, siteNo: no, group, weightMode, exercises, adjustments, schemeId,
+    ...(hidden ? { hidden: true } : {}), ...(rare ? { rare: true } : {}), catalogVersion: 3, updatedAt: 0,
+  };
+};
+const x3 = (id, name, group, weightMode, exercises, schemeId) => ({
+  id, name, siteName: null, siteNo: null, group, weightMode,
+  exercises: exercises.map((n, i) => ({ id: `${id}-${'abc'[i]}`, name: n })), adjustments: [], schemeId,
+  catalogVersion: 3, updatedAt: 0,
+});
+const DB3 = [['curl', 'Біцепс стоячи'], ['bench-curl', 'Біцепс сидячи на лаві'], ['hammer', 'Молотки'],
+  ['lateral', 'Махи в сторони'], ['front', 'Підйом перед собою'], ['press', 'Жим гантелей лежачи'],
+  ['fly', 'Розведення гантелей лежачи'], ['seated-press', 'Жим гантелей сидячи'], ['row', 'Тяга гантелі в нахилі'],
+  ['overhead', 'Розгинання з-за голови'], ['lunge', 'Випади з гантелями'], ['squat', 'Присідання з гантеллю']];
+const V3 = () => [
+  m3(1, 'Жим у блоці', 'chest', 'single', 'cable-chest-press', { hidden: true }),
+  m3(2, 'Жим у тренажері', 'chest', 'perHand', 'plate-chest-press', { adjustments: [SEAT3()] }),
+  m3(3, 'Зведення рук у тренажері', 'chest', 'single', 'butterfly', {
+    display: 'Метелик',
+    exercises: [{ id: 'eq-03-a', name: 'Зведення рук' }, { id: 'eq-03-b', name: 'Відведення рук назад' }],
+    adjustments: [pos5('handles-pos', 'Позиція ручок'), SEAT3()],
+  }),
+  m3(4, 'Жим ногами лежачи', 'legs', 'perHand', 'leg-press'),
+  m3(5, 'Жим ногами сидячи', 'legs', 'single', 'seated-leg-press', { hidden: true }),
+  m3(6, 'Зведення ніг у тренажері', 'legs', 'single', 'hip-adduction'),
+  m3(7, 'Згинання ніг лежачи на тренажері', 'legs', 'single', 'leg-curl', { adjustments: [pos5('roller', 'Позиція валика')] }),
+  m3(8, 'Присідання в тренажері «Гак-машина»', 'legs', 'perHand', 'hack-squat'),
+  m3(9, 'Розведення ніг у тренажері', 'legs', 'single', 'hip-abduction'),
+  m3(10, 'Розгинання ніг у тренажері', 'legs', 'single', 'leg-extension', {
+    adjustments: [pos5('roller', 'Валік'), pos5('tilt', 'Нахил'), pos5('backrest', 'Спинка (вперед-назад)')],
+  }),
+  m3(12, 'Відведення рук у тренажері сидячи', 'shoulders', 'single', 'lateral-raise', { adjustments: [SEAT3()] }),
+  m3(13, 'Жим у блоці', 'shoulders', 'single', 'cable-shoulder-press', { hidden: true }),
+  m3(14, 'Жим у тренажері сидячи', 'shoulders', 'perHand', 'plate-shoulder-press', {
+    adjustments: [GRIPPOS3('Позиція 1', 'Позиція 2'), SEAT3()],
+  }),
+  m3(15, 'Ротація на прес', 'abs', 'single', 'ab-station', {
+    display: 'Прес',
+    exercises: [{ id: 'eq-15-a', name: 'Ротація на прес' }, { id: 'eq-15-b', name: 'Скручування на прес' }],
+  }),
+  m3(17, 'Віджимання в гравітроні', 'arms', 'single', 'assisted-dip', { rare: true }),
+  m3(18, 'Жим на трицепс', 'arms', 'single', 'triceps-press'),
+  m3(19, 'Згинання рук у блоці', 'arms', 'single', 'cable-curl', { rare: true }),
+  m3(20, 'Підтягування в гравітроні', 'arms', 'single', 'assisted-pullup', { rare: true }),
+  m3(21, 'Вертикальна тяга в силовому тренажері', 'back', 'perHand', 'lever-pulldown', {
+    adjustments: [GRIPPOS3('Ширше', 'Вужче'), pos5('roller', 'Притискний валік')],
+  }),
+  m3(22, 'Горизонтальна тяга у силовому тренажері', 'back', 'perHand', 'lever-row', { adjustments: [SEAT3(), GRIP3()] }),
+  m3(23, 'Розгинання в блоці', 'back', 'single', 'cable-extension', { hidden: true }),
+  m3(24, 'Тяга в блоці', 'back', 'single', 'cable-pull'),
+  m3(25, 'Тяга вертикального блоку', 'back', 'single', 'lat-pulldown', {
+    adjustments: [HANDLE_V1, pos5('roller', 'Притискний валік')],
+  }),
+  m3(26, 'Тяга горизонтального блоку', 'back', 'single', 'low-row', { adjustments: [HANDLE_V1] }),
+  ...DB3.map(([slug, name]) => x3(`eq-db-${slug}`, name, 'dumbbells', 'perHand', [name], `db-${slug}`)),
+  x3('eq-bar', 'Турнік', 'bar', 'bodyweight', ['Підтягування'], null),
+  x3('eq-cardio', 'Кардіо', 'cardio', 'cardio', ['Бігова доріжка', 'Велотренажер', 'Еліпс'], 'cardio'),
+].map((e) => JSON.parse(JSON.stringify(e)));
+
+// --- версія 2 → 4: кардіо отримує схему (spec «Правки, друга черга» Q8) ---------------------
+// Запис v2 — як його засівала версія 2 каталогу: як версія 3, лише кардіо без схеми.
+const V2 = () => V3().map((e) => (e.id === 'eq-cardio'
   ? { ...e, schemeId: null, catalogVersion: 2 }
   : { ...e, catalogVersion: 2 }));
 
-test('v2 → v3: незмінене кардіо отримує schemeId «cardio», решта лише позначається версією', () => {
+test('v2 → v4: незмінене кардіо отримує schemeId «cardio», решта лише позначається версією', () => {
   const { byId } = apply(V2());
   assert.deepEqual(byId['eq-cardio'], SEED['eq-cardio']);
   assert.equal(byId['eq-cardio'].schemeId, 'cardio');
@@ -197,7 +273,7 @@ test('v2 → v3: незмінене кардіо отримує schemeId «cardi
   assert.deepEqual(upgradeEquipment(Object.values(byId), NONE), [], 'повторно — нічого');
 });
 
-test('v2 → v3: зміни тренера в кардіо і в інших тренажерах не губляться, записи на місці', () => {
+test('v2 → v4: зміни тренера в кардіо і в інших тренажерах не губляться, записи на місці', () => {
   let list = V2();
   list = replace(list, 'eq-cardio', {
     name: 'Кардіо (моє)', updatedAt: 1200,
@@ -205,7 +281,7 @@ test('v2 → v3: зміни тренера в кардіо і в інших тр
   });
   list = replace(list, 'eq-03', { name: 'Метелик (мій)', hidden: true, updatedAt: 1300 });
   list = replace(list, 'eq-07', {
-    adjustments: SEED['eq-07'].adjustments.map((a) => ({ ...a, count: 9, approx: false })), updatedAt: 1400,
+    adjustments: V2().find((e) => e.id === 'eq-07').adjustments.map((a) => ({ ...a, count: 9, approx: false })), updatedAt: 1400,
   });
   const data = {
     sessions: [{ id: 's1', clientId: 'c1', equipmentId: 'eq-cardio', exerciseId: 'eq-cardio-b', sets: [] }],
@@ -220,10 +296,12 @@ test('v2 → v3: зміни тренера в кардіо і в інших тр
   assert.equal(c.catalogVersion, CATALOG_VERSION);
   assert.equal(byId['eq-03'].name, 'Метелик (мій)');
   assert.equal(byId['eq-03'].hidden, true);
-  assert.equal(byId['eq-07'].adjustments[0].count, 9);
+  const roller = byId['eq-07'].adjustments.find((a) => a.id === 'roller');
+  assert.equal(roller.count, 9, 'кількість позицій тренера лишається');
+  assert.equal(roller.approx, false);
 });
 
-test('v2 → v3: прибрані №16 і старі «Гантелі» з позначкою v2 лишаються прибраними й цілими', () => {
+test('v2 → v4: прибрані №16 і старі «Гантелі» з позначкою v2 лишаються прибраними й цілими', () => {
   const v1 = apply(V1()).byId;
   const retired = ['eq-16', 'eq-dumbbells'].map((id) => ({ ...v1[id], catalogVersion: 2 }));
   const { byId } = apply([...V2(), ...retired]);
@@ -232,4 +310,88 @@ test('v2 → v3: прибрані №16 і старі «Гантелі» з по
     assert.ok(!byId[id].deleted, id);
     assert.equal(byId[id].exercises[0].id, `${id}-a`);
   }
+});
+
+// --- версія 3 → 4: третя черга (W1, W2, W4, W6) ------------------------------------------------
+const V3_BY = () => Object.fromEntries(V3().map((e) => [e.id, e]));
+
+test('v3 → v4: незмінене тренером — точно як новий каталог; повторно — нічого', () => {
+  const { byId } = apply(V3());
+  for (const id of Object.keys(SEED)) assert.deepEqual(byId[id], SEED[id], id);
+  assert.equal(byId['eq-04'].weightMode, 'legs');
+  assert.equal(byId['eq-08'].weightMode, 'legs');
+  assert.deepEqual(byId['eq-07'].adjustments.map((a) => [a.id, a.label]), [['lever', 'Важіль'], ['roller', 'Валік']]);
+  assert.equal(byId['eq-bar'].schemeId, 'pullup-bar');
+  assert.deepEqual(byId['eq-bar'].adjustments[0].options.map((o) => o.id), ['normal', 'wide', 'reverse']);
+  assert.deepEqual(upgradeEquipment(Object.values(byId), NONE), []);
+});
+
+test('v3 → v4: ручки-Г — id варіантів pos-1/pos-2 ті самі, нові лише назви; налаштування клієнтів на місці', () => {
+  const data = {
+    sessions: [],
+    settings: [setting('eq-21', 'eq-21-a', 'grip-pos', 'pos-2'), setting('eq-14', 'eq-14-a', 'grip-pos', 'pos-1'),
+      setting('eq-07', 'eq-07-a', 'roller', 3)],
+  };
+  const before = JSON.stringify(data);
+  const { byId } = apply(V3(), data);
+  for (const id of ['eq-21', 'eq-14']) {
+    const g = byId[id].adjustments.find((a) => a.id === 'grip-pos');
+    assert.deepEqual(g.options.map((o) => [o.id, o.label]), [['pos-1', 'Прямий'], ['pos-2', 'Під 90°']], id);
+  }
+  assert.ok(byId['eq-07'].adjustments.some((a) => a.id === 'roller'), 'валік №7 з налаштуванням — той самий id');
+  assert.equal(JSON.stringify(data), before, 'налаштування не змінено');
+});
+
+test('v3 → v4: перейменоване тренером лишається його, решта назв — нові', () => {
+  const v3 = V3_BY();
+  const g21 = v3['eq-21'].adjustments[0];
+  const list = Object.values({
+    ...v3,
+    // тренер перейменував варіант pos-1 на №21
+    'eq-21': { ...v3['eq-21'], updatedAt: 500,
+      adjustments: [{ ...g21, options: [{ id: 'pos-1', label: 'Широко' }, g21.options[1]] }, v3['eq-21'].adjustments[1]] },
+    // тренер перейменував саме регулювання на №14
+    'eq-14': { ...v3['eq-14'], updatedAt: 510,
+      adjustments: [{ ...v3['eq-14'].adjustments[0], label: 'Ручки (моє)' }, v3['eq-14'].adjustments[1]] },
+    // тренер перейменував валік на №7
+    'eq-07': { ...v3['eq-07'], updatedAt: 520, adjustments: [{ ...v3['eq-07'].adjustments[0], label: 'Мій валик' }] },
+    // тренер перейменував жим ногами
+    'eq-04': { ...v3['eq-04'], name: 'Жим 45°', updatedAt: 530 },
+  });
+  const { byId } = apply(list);
+  const g = byId['eq-21'].adjustments.find((a) => a.id === 'grip-pos');
+  assert.deepEqual(g.options.map((o) => [o.id, o.label]), [['pos-1', 'Широко'], ['pos-2', 'Під 90°']]);
+  assert.equal(g.label, 'Хват');
+  assert.equal(byId['eq-21'].updatedAt, 500);
+  const g14 = byId['eq-14'].adjustments.find((a) => a.id === 'grip-pos');
+  assert.equal(g14.label, 'Ручки (моє)');
+  assert.deepEqual(g14.options.map((o) => o.label), ['Прямий', 'Під 90°']);
+  assert.deepEqual(byId['eq-07'].adjustments.map((a) => [a.id, a.label]), [['lever', 'Важіль'], ['roller', 'Мій валик']]);
+  assert.equal(byId['eq-04'].name, 'Жим 45°');
+  assert.equal(byId['eq-04'].weightMode, 'legs', 'новий тип ваги — з каталогу');
+  for (const e of Object.values(byId)) assert.equal(e.catalogVersion, CATALOG_VERSION, e.id);
+});
+
+test('v3 → v4: старі підходи Л/П на №4 і №8 функція не чіпає', () => {
+  const data = {
+    sessions: [
+      { id: 's1', clientId: 'c1', equipmentId: 'eq-04', exerciseId: 'eq-04-a', date: '2026-10-15', sets: [{ reps: 10, left: 20, right: 20 }], updatedAt: 9 },
+      { id: 's2', clientId: 'c1', equipmentId: 'eq-08', exerciseId: 'eq-08-a', date: '2026-10-16', sets: [{ reps: 8, left: 15, right: 17.5 }], updatedAt: 9 },
+    ],
+    settings: [],
+  };
+  const before = JSON.stringify(data);
+  const { changed, byId } = apply(V3(), data);
+  assert.equal(JSON.stringify(data), before);
+  assert.ok(changed.every((e) => Array.isArray(e.exercises)), 'повертає лише тренажери');
+  assert.deepEqual(byId['eq-04'].exercises, [{ id: 'eq-04-a', name: 'Жим ногами лежачи' }], 'та сама вправа — записи на місці');
+  assert.deepEqual(byId['eq-08'].exercises, [{ id: 'eq-08-a', name: 'Присідання в тренажері «Гак-машина»' }]);
+});
+
+test('v1 → v4 і v2 → v4: одразу до нової версії', () => {
+  const a = apply(V1()).byId;
+  assert.equal(a['eq-04'].weightMode, 'legs');
+  assert.deepEqual(a['eq-21'], SEED['eq-21']);
+  const b = apply(V2()).byId;
+  for (const id of Object.keys(SEED)) assert.deepEqual(b[id], SEED[id], id);
 });
