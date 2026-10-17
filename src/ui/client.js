@@ -68,10 +68,20 @@ export async function renderClient(container, ctx) {
     autocomplete: 'off',
   });
 
-  // Перед переходом на тренажер — запам'ятати місце меню в поточному кроці історії.
-  const remember = () => {
+  // Перед переходом на тренажер — запам'ятати місце меню в поточному кроці історії:
+  // яку кнопку натиснули (і в якій секції) та де вона була на екрані.
+  const remember = (e) => {
+    const btn = e && e.currentTarget;
     const st = history.state && typeof history.state === 'object' ? history.state : {};
-    history.replaceState({ ...st, menu: { clientId: client.id, scrollY: window.scrollY, query: search.value } }, '');
+    history.replaceState({
+      ...st,
+      menu: {
+        clientId: client.id, scrollY: window.scrollY, query: search.value,
+        eq: btn ? btn.dataset.eq : null,
+        recent: !!(btn && btn.closest('.eq-recent')),
+        top: btn ? Math.round(btn.getBoundingClientRect().top) : null,
+      },
+    }, '');
   };
 
   const section = (title, items, cls = '') => h('section', { class: `eq-group ${cls}` },
@@ -105,7 +115,13 @@ export async function renderClient(container, ctx) {
   };
   search.addEventListener('input', filter);
 
+  // Місце меню застосовується один раз — при поверненні на цей крок; потім стирається,
+  // щоб наступні перемальовування (і очищений пошук) його не повертали.
   const saved = savedMenu(client.id);
+  if (saved) {
+    const { menu, ...rest } = history.state;
+    history.replaceState(rest, '');
+  }
   if (saved && saved.query) {
     search.value = String(saved.query);
     filter();
@@ -120,5 +136,19 @@ export async function renderClient(container, ctx) {
     search,
     body,
     noMatch));
+  if (saved && saved.eq) {
+    // Після вставки в DOM: та сама кнопка — на тому ж місці екрана, хоч би «Останні» й подовшали.
+    requestAnimationFrame(() => {
+      const btns = [...container.querySelectorAll('.eq-btn')]
+        .filter((b) => b.dataset.eq === saved.eq && !b.hidden && b.offsetParent);
+      const btn = btns.find((b) => !!b.closest('.eq-recent') === saved.recent) || btns[0];
+      if (!btn) return;
+      const rect = btn.getBoundingClientRect();
+      const top = Number.isFinite(saved.top) ? saved.top : (window.innerHeight - rect.height) / 2;
+      window.scrollTo(0, Math.max(0, window.scrollY + rect.top - top));
+      const after = btn.getBoundingClientRect();
+      if (after.top < 0 || after.bottom > window.innerHeight) btn.scrollIntoView({ block: 'center' });
+    });
+  }
   return saved && Number.isFinite(saved.scrollY) ? { scrollY: saved.scrollY } : null;
 }

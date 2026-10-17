@@ -37,24 +37,27 @@
 .eq-group h2 { margin: 0 0 8px; color: var(--muted); font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.04em; }
 .eq-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .eq-btn {
-  display: flex; flex-direction: row; align-items: center; gap: 8px;
-  min-height: var(--tap); padding: 8px 10px 8px 8px;
+  display: flow-root;
+  min-height: var(--tap); padding: 8px;
   background: var(--surface); color: var(--text);
   border: 1px solid var(--line); border-radius: var(--radius);
-  text-decoration: none; overflow-wrap: anywhere;
+  text-decoration: none;
+  /* назви переносяться лише між словами (не «Розведенн|я»): значок обтікається — слово, що не
+     влазить поруч зі значком, іде нижче на всю ширину кнопки (найдовше «горизонтального» влазить на 360px) */
+  overflow-wrap: normal; word-break: normal; hyphens: manual;
   touch-action: manipulation;
 }
 .eq-btn:active { transform: scale(0.98); }
-.eq-name { font-weight: 700; line-height: 1.2; }
+.eq-name { display: block; font-weight: 700; line-height: 1.2; font-size: 0.95em; }
 /* значок тренажера ліворуч від назви (Q1): світла плашка, щоб силует читався і в темній темі */
 .eq-ico {
-  flex: none; width: 42px; height: 36px; padding: 2px;
-  display: inline-flex; align-items: center; justify-content: center;
+  float: left; width: 40px; height: 34px; padding: 2px; margin: 0 8px 2px 0;
+  display: flex; align-items: center; justify-content: center;
   background: #eef2f0; border-radius: 8px; line-height: 0;
 }
 .eq-ico svg { display: block; width: 100%; height: 100%; }
-.eq-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-.eq-sub { font-size: 0.8rem; color: var(--muted); line-height: 1.2; }
+.eq-text { display: block; }
+.eq-sub { display: block; font-size: 0.8rem; color: var(--muted); line-height: 1.2; margin-top: 2px; }
 .eq-recent .eq-btn { background: var(--primary-soft); border-color: var(--primary); }
 
 /* --- екран вправи --- */
