@@ -3,7 +3,7 @@
 // params = { clientId, equipmentId, exerciseId? }.
 
 import { h, mount, toast } from './dom.js';
-import { formatDate, formatSet } from '../core/model.js';
+import { formatDate, formatSet, weightStep } from '../core/model.js';
 import { chartSeries } from '../core/chartdata.js';
 import { renderChart } from './chart.js';
 import { renderScheme } from '../schemes/index.js';
@@ -65,8 +65,10 @@ export async function renderExercise(container, ctx) {
   // --- запис і правка ---
   const common = { clientId: client.id, equipmentId: equipment.id, exerciseId: exercise.id };
 
+  const step = weightStep(equipment);
   const record = () => openSetForm({
     weightMode,
+    step,
     title: 'Новий підхід',
     initial: lastSet(sessions),
     allowAgain: true,
@@ -78,6 +80,7 @@ export async function renderExercise(container, ctx) {
 
   const edit = (session, index) => openSetForm({
     weightMode,
+    step,
     title: `Підхід ${index + 1} · ${formatDate(session.date)}`,
     initial: session.sets[index],
     onSave: async (set) => {

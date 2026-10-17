@@ -5,6 +5,7 @@
 
 import { h, mount, sheet, toast, confirmDialog } from './dom.js';
 import { GROUPS, WEIGHT_MODES } from '../core/model.js';
+import { isOffMenu } from '../core/catalog.js';
 import {
   renameEquipment, setHidden, addEquipment, addExercise, renameExercise, removeExercise,
   addAdjustment, renameAdjustment, renameOption, addOption, setPositionCount, removeAdjustment, parseOptions,
@@ -152,8 +153,8 @@ function openEditor(store, initial, onDone) {
         h('p', { class: 'eq-sub' }, `${GROUPS[eq.group] || ''} · ${WEIGHT_MODES[eq.weightMode] || ''}`),
         h('button', {
           class: 'btn', type: 'button',
-          onclick: () => commit((e) => setHidden(e, !e.hidden), eq.hidden ? 'Тренажер знову в меню' : 'Тренажер сховано з меню'),
-        }, eq.hidden ? 'Показати в меню клієнтів' : 'Сховати з меню клієнтів')),
+          onclick: () => commit((e) => setHidden(e, !isOffMenu(e)), isOffMenu(eq) ? 'Тренажер знову в меню' : 'Тренажер сховано з меню'),
+        }, isOffMenu(eq) ? 'Показати в меню клієнтів' : 'Сховати з меню клієнтів')),
       h('section', { class: 'eq-section' },
         h('h3', null, 'Вправи'),
         exercises.map((x) => h('div', { class: 'eq-item' },
@@ -255,11 +256,12 @@ export async function renderEquipment(container, ctx) {
       return [
         h('h2', { class: 'eq-group' }, gname),
         h('ul', { class: 'eq-list' }, items.map((e) => h('li', null,
-          h('button', { class: `eq-row${e.hidden ? ' is-hidden' : ''}`, type: 'button', dataset: { eq: e.id }, onclick: () => edit(e) },
+          h('button', { class: `eq-row${isOffMenu(e) ? ' is-hidden' : ''}`, type: 'button', dataset: { eq: e.id }, onclick: () => edit(e) },
             h('span', { class: 'eq-row-main' },
               h('span', { class: 'eq-row-name' }, e.name),
               e.siteName && e.siteName !== e.name ? h('span', { class: 'eq-row-site' }, e.siteName) : null),
-            e.hidden ? h('span', { class: 'eq-tag eq-tag-hidden' }, 'сховано') : null,
+            e.hidden === true ? h('span', { class: 'eq-tag eq-tag-hidden' }, 'сховано') : null,
+            e.retired && isOffMenu(e) ? h('span', { class: 'eq-tag eq-tag-hidden' }, 'прибрано з каталогу') : null,
             e.schemeId ? h('span', { class: 'eq-tag' }, 'схема') : null,
             h('span', { 'aria-hidden': 'true' }, '›'))))),
       ];

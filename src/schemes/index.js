@@ -22,6 +22,9 @@ export { handleIcon } from './handles.js';
 
 const safeColor = (c) => /^#[0-9a-f]{3,8}$/i.test(String(c || ''));
 
+/** Підпис під схемою тренажера без регулювань. */
+export const NO_ADJ_TEXT = 'Регулювань немає — лише вага';
+
 const MISSING_TEXT = 'Схему ще не намальовано — регулювання знімемо в залі';
 
 /** Текст значення регулювання: номер позиції ('3') | назва варіанта | 'не вибрано'. */
@@ -180,7 +183,9 @@ export function renderScheme(container, equipment, exerciseId, values, opts = {}
     const extra = adjs.filter((a) => !drawn.has(a.id)).map((a) => a.id);
     mount(container, h('div', { class: 'scheme', dataset: { scheme: sc.id } },
       canvas,
-      h('p', { class: 'muted scheme-tip' }, 'Натисніть на синю рамку, щоб змінити значення.'),
+      adjs.length
+        ? h('p', { class: 'muted scheme-tip' }, 'Натисніть на синю рамку, щоб змінити значення.')
+        : h('p', { class: 'muted scheme-tip scheme-no-adj' }, NO_ADJ_TEXT),
       extra.length ? renderAdjustmentList(equipment, state.values, { onPick: pick, only: extra }) : null));
   }
 

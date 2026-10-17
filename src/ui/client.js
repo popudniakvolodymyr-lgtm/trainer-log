@@ -4,6 +4,7 @@
 
 import { h, mount } from './dom.js';
 import { GROUPS } from '../core/model.js';
+import { menuEquipment } from '../core/catalog.js';
 import { listSessions, recentEquipmentIds } from './log-data.js';
 import { sendButton, backupBanner } from './exchange.js';
 
@@ -12,10 +13,16 @@ const RECENT_LIMIT = 6;
 const eqHref = (clientId, equipmentId) =>
   `#/client/${encodeURIComponent(clientId)}/eq/${encodeURIComponent(equipmentId)}`;
 
+// Рідкісні (і сховані, на яких є записи клієнта) — сірим, у кінці групи.
+const MUTED_STYLE = { opacity: '0.55', filter: 'grayscale(1)' };
+
 /** Кнопка тренажера: назва (власна) і дрібно — назва з сайту, якщо відрізняється. */
-function equipmentButton(clientId, eq) {
+function equipmentButton(clientId, eq, muted = false) {
   const sub = eq.siteName && eq.siteName !== eq.name ? eq.siteName : null;
-  return h('a', { class: 'eq-btn', href: eqHref(clientId, eq.id), dataset: { eq: eq.id } },
+  return h('a', {
+    class: `eq-btn${muted ? ' is-rare' : ''}`, href: eqHref(clientId, eq.id), dataset: { eq: eq.id },
+    style: muted ? MUTED_STYLE : null,
+  },
     h('span', { class: 'eq-name' }, eq.name),
     sub ? h('span', { class: 'eq-sub' }, sub) : null);
 }
@@ -32,8 +39,11 @@ export async function renderClient(container, ctx) {
     return;
   }
 
-  const equipment = (await store.all('equipment')).filter((e) => !e.hidden);
   const sessions = await listSessions(store, client.id);
+  // Сховане й прибране з каталогу — лише якщо на ньому є записи клієнта (П5, П9).
+  const menu = menuEquipment(await store.all('equipment'), sessions);
+  const mutedIds = new Set(menu.filter((x) => x.muted).map((x) => x.equipment.id));
+  const equipment = menu.map((x) => x.equipment);
   const byId = new Map(equipment.map((e) => [e.id, e]));
   const recent = recentEquipmentIds(sessions).map((id) => byId.get(id)).filter(Boolean).slice(0, RECENT_LIMIT);
 
@@ -46,7 +56,7 @@ export async function renderClient(container, ctx) {
 
   const section = (title, items, cls = '') => h('section', { class: `eq-group ${cls}` },
     h('h2', null, title),
-    h('div', { class: 'eq-grid' }, items.map((eq) => equipmentButton(client.id, eq))));
+    h('div', { class: 'eq-grid' }, items.map((eq) => equipmentButton(client.id, eq, mutedIds.has(eq.id)))));
 
   const recentSection = recent.length ? section('Останні', recent, 'eq-recent') : null;
   const groupSections = Object.entries(GROUPS).map(([groupId, title]) => {

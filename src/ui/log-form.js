@@ -29,13 +29,29 @@ function toNumber(text) {
   return Number(s);
 }
 
+// Поля ваги, на які діє крок тренажера (model.weightStep).
+const STEPPED = new Set(['weight', 'left', 'right']);
+
+/** Найближче кратне кроку (для підстановки в новий підхід). */
+const snap = (v, step) => (typeof v === 'number' && step ? Math.round(Math.round(v / step) * step * 100) / 100 : v);
+
 /**
  * Відкриває панель підходу.
- * opts: { weightMode, initial: Set|null, title, onSave(set) → Promise, onDelete?() → Promise, allowAgain? }
- * Підставлені значення — з initial; невірне введення лишається в полях, підказка під полем.
+ * opts: { weightMode, step?: 5|2.5|null (крок ваги тренажера), initial: Set|null, title,
+ *         onSave(set) → Promise, onDelete?() → Promise, allowAgain? }
+ * Підставлені значення — з initial (у новому підході вага — найближче кратне кроку);
+ * кнопки ваги −крок/+крок; невірне введення лишається в полях, підказка під полем.
  */
-export function openSetForm({ weightMode, initial = null, title, onSave, onDelete = null, allowAgain = false }) {
-  const fields = SET_FIELDS[weightMode] || [];
+export function openSetForm({
+  weightMode, step = null, initial = null, title, onSave, onDelete = null, allowAgain = false,
+}) {
+  const fields = (SET_FIELDS[weightMode] || []).map((f) => (step && STEPPED.has(f.key) ? { ...f, step, snap: true } : f));
+  const isNew = !onDelete;
+  const startValue = (f) => {
+    if (!initial) return '';
+    const v = initial[f.key];
+    return asText(isNew && f.snap ? snap(v, step) : v);
+  };
   const inputs = {};
   const errors = {};
   let busy = false;
@@ -44,7 +60,7 @@ export function openSetForm({ weightMode, initial = null, title, onSave, onDelet
     const input = h('input', {
       class: 'input log-input', type: 'text', id: `f-${f.key}`, name: f.key,
       inputmode: f.mode || 'decimal', autocomplete: 'off', enterkeyhint: 'done',
-      value: initial ? asText(initial[f.key]) : '',
+      value: startValue(f),
     });
     inputs[f.key] = input;
     errors[f.key] = h('p', { class: 'field-error', id: `e-${f.key}`, role: 'alert' });
@@ -52,16 +68,23 @@ export function openSetForm({ weightMode, initial = null, title, onSave, onDelet
     input.addEventListener('input', () => { errors[f.key].textContent = ''; input.removeAttribute('aria-invalid'); });
     const bump = (dir) => {
       const cur = toNumber(input.value);
-      const next = Math.max(0, Math.round(((cur === null ? 0 : cur) + dir * f.step) * 100) / 100);
+      const base = cur === null ? 0 : cur;
+      // З кроком тренажера — до сусіднього кратного (42,5 → +5 → 45).
+      const raw = f.snap
+        ? (dir > 0 ? Math.floor(base / f.step + 1e-9) + 1 : Math.ceil(base / f.step - 1e-9) - 1) * f.step
+        : base + dir * f.step;
+      const next = Math.max(0, Math.round(raw * 100) / 100);
       input.value = formatNumber(next);
       errors[f.key].textContent = '';
     };
     return h('div', { class: 'log-field' },
       h('label', { class: 'label', for: `f-${f.key}` }, f.label),
       h('div', { class: 'log-row' },
-        h('button', { class: 'btn log-step', type: 'button', 'aria-label': 'Менше', onclick: () => bump(-1) }, '−'),
+        h('button', { class: 'btn log-step', type: 'button', 'aria-label': f.snap ? `Менше на ${formatNumber(f.step)} кг` : 'Менше', onclick: () => bump(-1) },
+          f.snap ? `−${formatNumber(f.step)}` : '−'),
         input,
-        h('button', { class: 'btn log-step', type: 'button', 'aria-label': 'Більше', onclick: () => bump(1) }, '+')),
+        h('button', { class: 'btn log-step', type: 'button', 'aria-label': f.snap ? `Більше на ${formatNumber(f.step)} кг` : 'Більше', onclick: () => bump(1) },
+          f.snap ? `+${formatNumber(f.step)}` : '+')),
       weightMode === 'perHand' && f.key === 'right'
         ? h('button', {
           class: 'btn log-copy', type: 'button',
@@ -75,7 +98,10 @@ export function openSetForm({ weightMode, initial = null, title, onSave, onDelet
   function collect() {
     const raw = {};
     for (const f of fields) raw[f.key] = inputs[f.key].value;
-    const res = validateSet(weightMode, raw);
+    // Правка старого підходу, де вагу не міняли (записано до кроку 5 / 2,5 кг), — не блокуємо.
+    const keptOld = !isNew && initial && fields.filter((f) => f.snap)
+      .every((f) => toNumber(inputs[f.key].value) === initial[f.key]);
+    const res = validateSet(weightMode, raw, { step: keptOld ? null : step });
     for (const f of fields) {
       const msg = res.ok ? '' : (res.errors[f.key] || '');
       errors[f.key].textContent = msg;

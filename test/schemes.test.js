@@ -20,16 +20,16 @@ const badgeValue = (svg, adjId) => {
 };
 
 test('три схеми зареєстровані під schemeId з каталогу', () => {
-  assert.deepEqual(Object.keys(SCHEMES).sort(), ['butterfly', 'low-row', 'lever-pulldown'].sort());
+  assert.deepEqual(Object.keys(SCHEMES).sort(), ['butterfly', 'low-row', 'lever-row'].sort());
   assert.equal(schemeFor(byId['eq-03']), SCHEMES.butterfly);
-  assert.equal(schemeFor(byId['eq-21']), SCHEMES['lever-pulldown']);
+  assert.equal(schemeFor(byId['eq-22']), SCHEMES['lever-row']);
   assert.equal(schemeFor(byId['eq-26']), SCHEMES['low-row']);
   assert.equal(schemeFor(byId['eq-01']), null, 'без schemeId — заглушка');
   assert.equal(schemeFor({ ...byId['eq-01'], schemeId: 'немає-такої' }), null);
 });
 
 test('кожна draw: SVG з data-adj для кожного регулювання тренажера', () => {
-  for (const eqId of ['eq-03', 'eq-21', 'eq-26']) {
+  for (const eqId of ['eq-03', 'eq-22', 'eq-26']) {
     const eq = byId[eqId];
     const svg = schemeFor(eq).draw({}, eq.adjustments);
     assert.match(svg, /^<svg[\s>]/, eqId);
@@ -60,8 +60,8 @@ test('«Метелик»: передані значення видно на бе
 });
 
 test('вертикальна тяга: сидіння 1…5 з ⚠, три зони хвату, вибрана підсвічена, «збоку» немає', () => {
-  const eq = byId['eq-21'];
-  const svg = SCHEMES['lever-pulldown'].draw({ seat: 3, grip: 'red' }, eq.adjustments);
+  const eq = byId['eq-22'];
+  const svg = SCHEMES['lever-row'].draw({ seat: 3, grip: 'red' }, eq.adjustments);
   assert.equal(badgeValue(svg, 'seat'), '3');
   assert.equal(badgeValue(svg, 'grip'), 'red');
   for (let n = 1; n <= 5; n++) assert.ok(svg.includes(`data-pos="seat:${n}"`));
@@ -74,9 +74,9 @@ test('вертикальна тяга: сидіння 1…5 з ⚠, три зо�
 });
 
 test('перейменована позиція хвату і регулювання — нова назва на схемі, текст екранується', () => {
-  const eq = byId['eq-21'];
+  const eq = byId['eq-22'];
   const renamed = renameOption(eq, 'grip', 'red', 'Вигин <угору>');
-  const svg = SCHEMES['lever-pulldown'].draw({ grip: 'red' }, renamed.adjustments);
+  const svg = SCHEMES['lever-row'].draw({ grip: 'red' }, renamed.adjustments);
   assert.ok(svg.includes('Вигин &lt;угору&gt;'));
   assert.ok(!svg.includes('<угору>'));
 });

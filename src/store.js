@@ -6,7 +6,7 @@
 // kind: 'clients' | 'equipment' | 'sessions' | 'settings'
 
 import { uuid } from './core/model.js';
-import { seedEquipment } from './core/catalog.js';
+import { upgradeEquipment, CATALOG_VERSION } from './core/catalog.js';
 
 export const KINDS = Object.freeze(['clients', 'equipment', 'sessions', 'settings']);
 const META = 'meta';
@@ -183,6 +183,7 @@ export async function openStore({
         for (const rec of snap[kind] || []) os.put(rec);
       }
       await done(tx);
+      await upgradeCatalog();
     },
 
     /**
@@ -200,6 +201,8 @@ export async function openStore({
         for (const rec of changes[kind] || []) os.put(rec);
       }
       await done(tx);
+      // Тренажери зі старого каталогу (файл з телефона без оновлення) — одразу до нової версії.
+      if ((changes.equipment || []).length) await upgradeCatalog();
     },
 
     close() {
@@ -207,10 +210,26 @@ export async function openStore({
     },
   };
 
-  // Засівання: додати стартові тренажери, яких ще немає (у т.ч. нові з оновлення програми).
-  const have = new Set((await store.all('equipment', { withDeleted: true })).map((e) => e.id));
-  const missing = seedEquipment().filter((e) => !have.has(e.id));
-  if (missing.length) await store.putMany('equipment', missing);
+  /**
+   * Засівання й оновлення каталогу: додає відсутні стартові тренажери і оновлює ті, що ще
+   * старої версії (catalog.upgradeEquipment). Записи й налаштування не чіпає. Одна транзакція.
+   */
+  async function upgradeCatalog() {
+    const [equipment, sessions, settings] = await Promise.all(
+      ['equipment', 'sessions', 'settings'].map((k) => store.all(k, { withDeleted: true })),
+    );
+    const changed = upgradeEquipment(equipment, { sessions, settings });
+    const meta = (await getMeta()) || DEFAULT_META();
+    const metaChanged = meta.catalogVersion !== CATALOG_VERSION;
+    if (!changed.length && !metaChanged) return;
+    const tx = db.transaction([META, 'equipment'], 'readwrite');
+    const os = tx.objectStore('equipment');
+    for (const rec of changed) os.put(rec);
+    if (metaChanged) tx.objectStore(META).put({ ...meta, catalogVersion: CATALOG_VERSION }, META_KEY);
+    await done(tx);
+  }
+
+  await upgradeCatalog();
   await store.getMeta();
 
   if (persist) requestPersist();

@@ -165,3 +165,38 @@ test('formatDate: YYYY-MM-DD → ДД.ММ.РРРР', () => {
   assert.equal(formatDate('2026-10-17'), '17.10.2026');
   assert.equal(formatDate('2026-01-05'), '05.01.2026');
 });
+
+// --- крок ваги (spec «Правки» П1) ------------------------------------------
+
+import { weightStep } from '../src/core/model.js';
+
+test('weightStep: блок 5 кг, диски 2,5 кг, гантелі/турнік/кардіо без кроку', () => {
+  assert.equal(weightStep({ weightMode: 'single', group: 'chest' }), 5);
+  assert.equal(weightStep({ weightMode: 'single', group: 'legs' }), 5);
+  assert.equal(weightStep({ weightMode: 'perHand', group: 'back' }), 2.5);
+  assert.equal(weightStep({ weightMode: 'perHand', group: 'dumbbells' }), null);
+  assert.equal(weightStep({ weightMode: 'bodyweight', group: 'bar' }), null);
+  assert.equal(weightStep({ weightMode: 'cardio', group: 'cardio' }), null);
+  assert.equal(weightStep(null), null);
+});
+
+test('validateSet зі step 5: кратне 5 — так, 42,5 — підказка блоку', () => {
+  assert.deepEqual(validateSet('single', { reps: '10', weight: '45' }, { step: 5 }),
+    { ok: true, set: { reps: 10, weight: 45 } });
+  assert.deepEqual(validateSet('single', { reps: '10', weight: '42,5' }, { step: 5 }),
+    { ok: false, errors: { weight: 'На блоці вага кроком 5 кг' } });
+  assert.equal(validateSet('single', { reps: 10, weight: 0 }, { step: 5 }).ok, true);
+});
+
+test('validateSet зі step 2,5: 2,5 / 17,5 — так, 3 — підказка дисків на кожній руці', () => {
+  assert.deepEqual(validateSet('perHand', { reps: 8, left: '2,5', right: '17,5' }, { step: 2.5 }),
+    { ok: true, set: { reps: 8, left: 2.5, right: 17.5 } });
+  assert.deepEqual(validateSet('perHand', { reps: 8, left: '3', right: '21' }, { step: 2.5 }),
+    { ok: false, errors: { left: 'На дисках вага кроком 2,5 кг', right: 'На дисках вага кроком 2,5 кг' } });
+});
+
+test('validateSet без step (гантелі) — будь-яка вага, як і раніше', () => {
+  assert.equal(validateSet('perHand', { reps: 8, left: '3', right: '7,25' }).ok, true);
+  assert.equal(validateSet('perHand', { reps: 8, left: '3', right: '7' }, { step: null }).ok, true);
+  assert.equal(validateSet('single', { reps: 8, weight: '42,5' }).ok, true);
+});

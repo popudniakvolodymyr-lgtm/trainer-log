@@ -4,7 +4,10 @@
 // Усі сутності мають: id (uuid рядок), updatedAt (мс), deleted (bool, опц.)
 // Client     { id, name, updatedAt, deleted? }
 // Equipment  { id, name, siteName|null, siteNo|null, group, weightMode, exercises: Exercise[],
-//              adjustments: Adjustment[], schemeId|null, hidden?, custom?, updatedAt, deleted? }
+//              adjustments: Adjustment[], schemeId|null, hidden?, rare?, retired?, custom?,
+//              catalogVersion?, updatedAt, deleted? }
+//   rare — у меню в кінці групи, сірим; retired — прибраний з каталогу (у меню лише з записами);
+//   catalogVersion — до якої версії каталогу запис уже оновлено (catalog.upgradeEquipment).
 // Exercise   { id, name, deleted? }
 // Adjustment { id, label, kind: 'positions'|'options', count?, options?: [{id,label,color?}],
 //              approx?: bool, unknown?: bool, deleted? }
@@ -13,7 +16,7 @@
 //            bodyweight: { reps, extra|null } · cardio: { minutes, km|null, kcal|null }
 // Setting    { id: `${clientId}|${exerciseId}|${adjustmentId}`, clientId, equipmentId, exerciseId,
 //              adjustmentId, value, updatedAt, by:'trainer'|'client' }
-// Meta       { role, deviceId, clientId, trainerName, lastBackupAt, aliases }
+// Meta       { role, deviceId, clientId, trainerName, lastBackupAt, aliases, catalogVersion? }
 
 export function uuid() {
   const c = globalThis.crypto;
@@ -118,14 +121,44 @@ const FIELDS = {
   }),
 };
 
+// Поля ваги, до яких застосовується крок тренажера.
+const STEP_FIELDS = { single: ['weight'], perHand: ['left', 'right'] };
+
+/** Текст підказки, коли вага не кратна кроку. */
+export function stepText(step) {
+  if (step === 5) return 'На блоці вага кроком 5 кг';
+  if (step === 2.5) return 'На дисках вага кроком 2,5 кг';
+  return `Вага кроком ${formatNumber(step)} кг`;
+}
+
+const isMultiple = (n, step) => Math.abs(n / step - Math.round(n / step)) < 1e-9;
+
+/**
+ * Крок ваги тренажера: 5 — блок зі шпилькою (single), 2.5 — диски (perHand тренажер),
+ * null — без обмеження (гантелі, турнік, кардіо).
+ */
+export function weightStep(equipment) {
+  if (!equipment || equipment.group === 'dumbbells') return null;
+  if (equipment.weightMode === 'single') return 5;
+  if (equipment.weightMode === 'perHand') return 2.5;
+  return null;
+}
+
 /**
  * Перевіряє введений підхід. Приймає рядки з комою або крапкою.
+ * opts.step — крок ваги тренажера (weightStep); вага не кратна кроку → підказка.
  * → {ok:true, set} | {ok:false, errors:{field: 'текст'}}
  */
-export function validateSet(weightMode, raw = {}) {
+export function validateSet(weightMode, raw = {}, { step = null } = {}) {
   const fields = FIELDS[weightMode];
   if (!fields) return { ok: false, errors: { _: 'Невідомий тип тренажера' } };
   const checked = fields(raw || {});
+  if (step > 0) {
+    for (const key of STEP_FIELDS[weightMode] || []) {
+      const [value, err] = checked[key];
+      if (!err && value !== null && !isMultiple(value, step)) checked[key] = [null, stepText(step)];
+    }
+  }
   const set = {};
   const errors = {};
   for (const [key, [value, err]] of Object.entries(checked)) {
