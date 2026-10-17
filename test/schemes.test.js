@@ -13,14 +13,14 @@ import {
 const byId = Object.fromEntries(seedEquipment().map((e) => [e.id, e]));
 const active = (eq) => eq.adjustments.filter((a) => !a.deleted);
 
-// Значення бейджа регулювання: <g … data-badge="<adj>" data-value="<v>">
-const badgeValue = (svg, adjId) => {
-  const m = new RegExp(`data-badge="${adjId}"[^>]*data-value="([^"]*)"`).exec(svg);
+// Значення мітки регулювання на малюнку: <g … data-marker="<adj>" … data-value="<v>">
+const markerValue = (svg, adjId) => {
+  const m = new RegExp(`data-marker="${adjId}"[^>]*data-value="([^"]*)"`).exec(svg);
   return m ? m[1] : null;
 };
 
 // Кардіо (Q8) малює таск 10 у src/schemes/cardio.js — до того заглушка; таск 10 прибирає звідси.
-const PENDING = new Set(['cardio']);
+const PENDING = new Set();
 
 test('кожен schemeId каталогу має схему в реєстрі', () => {
   for (const eq of seedEquipment()) {
@@ -35,68 +35,71 @@ test('кожен schemeId каталогу має схему в реєстрі',
   assert.equal(schemeFor({ ...byId['eq-01'], schemeId: 'немає-такої' }), null);
 });
 
-test('кожна draw: SVG з data-adj для кожного регулювання тренажера', () => {
+test('кожна схема: мітка (data-adj) для кожного регулювання тренажера', () => {
   for (const eqId of ['eq-03', 'eq-22', 'eq-26']) {
     const eq = byId[eqId];
-    const svg = schemeFor(eq).draw({}, eq.adjustments);
+    const svg = schemeSvg(schemeFor(eq), eq, eq.exercises[0].id, {});
     assert.match(svg, /^<svg[\s>]/, eqId);
     assert.match(svg, /<\/svg>$/, eqId);
     for (const a of active(eq)) {
-      assert.ok(svg.includes(`data-adj="${a.id}"`), `${eqId}: немає зони ${a.id}`);
+      assert.ok(svg.includes(`data-adj="${a.id}"`), `${eqId}: немає мітки ${a.id}`);
     }
   }
 });
 
-test('«Метелик»: передані значення видно на бейджах, позиції 1…5 розмічені з поясненням', () => {
+test('«Метелик»: передані значення підсвічують мітки; позиції 1…5 з поясненням — у вікні вибору', () => {
   const eq = byId['eq-03'];
-  const svg = SCHEMES.butterfly.draw({ seat: 4, 'handles-pos': 2 }, eq.adjustments);
-  assert.equal(badgeValue(svg, 'seat'), '4');
-  assert.equal(badgeValue(svg, 'handles-pos'), '2');
+  const sc = SCHEMES.butterfly;
+  const svg = schemeSvg(sc, eq, 'eq-03-a', { seat: 4, 'handles-pos': 2 });
+  assert.equal(markerValue(svg, 'seat'), '4');
+  assert.equal(markerValue(svg, 'handles-pos'), '2');
   for (const adj of ['seat', 'handles-pos']) {
-    for (let n = 1; n <= 5; n++) {
-      assert.ok(svg.includes(`data-pos="${adj}:${n}"`), `немає позначки ${adj}:${n}`);
-    }
+    const p = pickerArt(sc, eq.adjustments.find((a) => a.id === adj), 3);
+    for (let n = 1; n <= 5; n++) assert.ok(p.includes(`data-pick="${n}"`), `немає позиції ${adj}:${n}`);
   }
-  assert.ok(svg.includes('найнижче') && svg.includes('найвище'));
-  assert.ok(svg.includes('ближче до грудей') && svg.includes('найширше розведені'));
-  assert.ok(svg.includes('⚠ приблизно — уточнити в залі'));
-  // інша пара значень — інші бейджі (значення справді з аргументу)
-  const svg2 = SCHEMES.butterfly.draw({ seat: 1 }, eq.adjustments);
-  assert.equal(badgeValue(svg2, 'seat'), '1');
-  assert.equal(badgeValue(svg2, 'handles-pos'), '');
+  const seatPick = pickerArt(sc, eq.adjustments.find((a) => a.id === 'seat'), 1);
+  assert.ok(seatPick.includes('найнижче') && seatPick.includes('найвище'));
+  const hpPick = pickerArt(sc, eq.adjustments.find((a) => a.id === 'handles-pos'), 1);
+  assert.ok(hpPick.includes('ближче до грудей') && hpPick.includes('найширше розведені'));
+  // інша пара значень — інші мітки (значення справді з аргументу)
+  const svg2 = schemeSvg(sc, eq, 'eq-03-a', { seat: 1 });
+  assert.equal(markerValue(svg2, 'seat'), '1');
+  assert.equal(markerValue(svg2, 'handles-pos'), '');
 });
 
-test('горизонтальна тяга (№22): сидіння 1…5 з ⚠, три зони хвату, вибрана підсвічена, «збоку» немає', () => {
+test('горизонтальна тяга (№22): мітки сидіння й хвату, три зони хвату у вікні вибору, вибрана підсвічена, «збоку» немає', () => {
   const eq = byId['eq-22'];
-  const svg = SCHEMES['lever-row'].draw({ seat: 3, grip: 'red' }, eq.adjustments);
-  assert.equal(badgeValue(svg, 'seat'), '3');
-  assert.equal(badgeValue(svg, 'grip'), 'red');
-  for (let n = 1; n <= 5; n++) assert.ok(svg.includes(`data-pos="seat:${n}"`));
-  for (const opt of ['green', 'red', 'orange']) assert.ok(svg.includes(`data-opt="${opt}"`), opt);
-  assert.match(svg, /data-opt="red"[^>]*class="[^"]*is-selected/);
-  assert.doesNotMatch(svg, /data-opt="green"[^>]*class="[^"]*is-selected/);
-  assert.ok(svg.includes('Вигин'), 'назва вибраної позиції хвату');
-  assert.ok(svg.includes('⚠ приблизно — уточнити в залі'));
-  assert.ok(!/збоку/i.test(svg));
+  const sc = SCHEMES['lever-row'];
+  const svg = schemeSvg(sc, eq, 'eq-22-a', { seat: 3, grip: 'red' });
+  assert.equal(markerValue(svg, 'seat'), '3');
+  assert.equal(markerValue(svg, 'grip'), 'red');
+  const seatPick = pickerArt(sc, eq.adjustments.find((a) => a.id === 'seat'), 3);
+  for (let n = 1; n <= 5; n++) assert.ok(seatPick.includes(`data-pick="${n}"`));
+  const p = pickerArt(sc, eq.adjustments.find((a) => a.id === 'grip'), 'red');
+  for (const opt of ['green', 'red', 'orange']) assert.ok(p.includes(`data-pick="${opt}"`), opt);
+  assert.match(p, /data-pick="red"[^>]*class="[^"]*is-on/);
+  assert.doesNotMatch(p, /data-pick="green"[^>]*class="[^"]*is-on/);
+  assert.ok(p.includes('Вигин'), 'назва вибраної позиції хвату');
+  assert.ok(!/збоку/i.test(svg + p));
 });
 
-test('перейменована позиція хвату і регулювання — нова назва на схемі, текст екранується', () => {
+test('перейменована позиція хвату — нова назва у вікні вибору, текст екранується', () => {
   const eq = byId['eq-22'];
   const renamed = renameOption(eq, 'grip', 'red', 'Вигин <угору>');
-  const svg = SCHEMES['lever-row'].draw({ grip: 'red' }, renamed.adjustments);
-  assert.ok(svg.includes('Вигин &lt;угору&gt;'));
-  assert.ok(!svg.includes('<угору>'));
+  const p = pickerArt(SCHEMES['lever-row'], renamed.adjustments.find((a) => a.id === 'grip'), 'red');
+  assert.ok(p.includes('Вигин &lt;угору&gt;'));
+  assert.ok(!p.includes('<угору>'));
 });
 
-test('тяга нижнього блоку: малюнок вибраної ручки й назва', () => {
+test('тяга нижнього блоку: мітка ручки зі значенням; у вікні вибору — малюнок і назва ручки', () => {
   const eq = byId['eq-26'];
-  const svg = SCHEMES['low-row'].draw({ handle: 'rope' }, eq.adjustments);
-  assert.equal(badgeValue(svg, 'handle'), 'rope');
-  assert.ok(svg.includes('Канат'));
-  assert.ok(svg.includes('data-handle="rope"'));
-  const empty = SCHEMES['low-row'].draw({}, eq.adjustments);
-  assert.equal(badgeValue(empty, 'handle'), '');
-  assert.ok(empty.includes('не вибрано'));
+  const sc = SCHEMES['low-row'];
+  assert.equal(markerValue(schemeSvg(sc, eq, 'eq-26-a', { handle: 'rope' }), 'handle'), 'rope');
+  assert.equal(markerValue(schemeSvg(sc, eq, 'eq-26-a', {}), 'handle'), '');
+  const p = pickerArt(sc, eq.adjustments.find((a) => a.id === 'handle'), 'rope');
+  assert.ok(p.includes('Канат'));
+  assert.ok(p.includes('data-handle="rope"'));
+  assert.match(p, /data-pick="rope"[^>]*class="[^"]*is-on/);
 });
 
 test('5 малюнків ручок: різні, кожен SVG; №6 немає', () => {
@@ -248,9 +251,9 @@ test('MARKERS може залежати від вправи (функція exer
 });
 
 test('старий модуль (draw) малюється як раніше', () => {
-  const eq = byId['eq-03'];
-  const svg = schemeSvg(SCHEMES.butterfly, eq, 'eq-03-a', { seat: 4 });
-  assert.equal(svg, SCHEMES.butterfly.draw({ seat: 4 }, eq.adjustments.filter((a) => !a.deleted)));
+  const eq = byId['eq-db-curl'];
+  const svg = schemeSvg(SCHEMES['db-curl'], eq, 'eq-db-curl-a', {});
+  assert.equal(svg, SCHEMES['db-curl'].draw({}, eq.adjustments.filter((a) => !a.deleted)));
 });
 
 test('список під малюнком: усі активні регулювання з поточним значенням, ⚠ біля приблизних, колір мітки', () => {
@@ -275,7 +278,7 @@ test('PICKERS: наочність у вікні вибору отримує по
   assert.match(pickerArt(mod, seat, 4), /Сидіння:4/);
   assert.match(pickerArt(mod, seat, undefined), /Сидіння:-/);
   assert.equal(pickerArt(mod, testEq.adjustments[1], 'red'), '');
-  assert.equal(pickerArt(SCHEMES.butterfly, seat, 1), '', 'старі модулі PICKERS не мають');
+  assert.equal(pickerArt(SCHEMES['db-curl'], seat, 1), '', 'старі модулі PICKERS не мають');
 });
 
 test('значок у меню: силует art({mini:true}), гантеля для групи «Гантелі», нейтральний без схеми', () => {
@@ -294,7 +297,7 @@ test('значок у меню: силует art({mini:true}), гантеля д
   const neutral = equipmentIcon({ ...byId['eq-01'], schemeId: null });
   assert.ok(neutral.includes('data-icon="machine"'));
   assert.notEqual(neutral, dumbbell);
-  assert.equal(equipmentIcon(byId['eq-03'], SCHEMES.butterfly), neutral, 'старий модуль без art — нейтральний значок');
+  assert.equal(equipmentIcon(byId['eq-03'], SCHEMES['db-curl']), neutral, 'старий модуль без art — нейтральний значок');
   // зламаний art не валить меню
   assert.equal(equipmentIcon(testEq, { id: 'x', art: () => { throw new Error('x'); } }), neutral);
 });

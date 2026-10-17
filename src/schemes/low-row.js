@@ -1,65 +1,44 @@
-// Тяга нижнього (горизонтального) блоку, SHUA, eq-26 — за фото gym/my-photos/tyaga-nyzhnoho-bloku.png.
-// Регулювань немає — лише «Ручка» на карабіні (5 ручок, спільні для всіх блокових тяг).
+// Тяга нижнього (горизонтального) блоку, SHUA, eq-26 — за фото gym/my-photos/tyaga-nyzhnoho-bloku.png,
+// ракурс ¾ (новий контракт art/MARKERS/PICKERS): стійка з вагою попереду, довга лава, упор для ніг,
+// нижній блок і трос до ручки. Регулювань немає — лише «Ручка» на карабіні (5 ручок, спільні для
+// всіх блокових тяг; малюнки — у вікні вибору).
 
-import { C, el, text, svgRoot, pickAdj, optValue, zone, ring, badge, guide } from './svg.js';
-import { handleArt } from './handles.js';
+import {
+  P3, scene3d, renderScene, artModule, beam, box, disc, tube, tower, cable, floorShadow, human, handlePicker,
+} from './upper.js';
 
 export const id = 'low-row';
 export const ADJUSTMENTS = ['handle'];
 export const HINTS = {};
+export const PICKERS = { handle: handlePicker };
 
-const W = 360;
-const FLOOR = 300;
+const FR = P3.frame;
 
-function machine() {
-  return [
-    el('line', { x1: 8, y1: FLOOR + 1, x2: W - 8, y2: FLOOR + 1, stroke: C.floor, 'stroke-width': 3 }),
-    // стійка з вагою
-    el('rect', { x: 14, y: 36, width: 80, height: FLOOR - 36, rx: 10, fill: C.frame, stroke: C.frameEdge, 'stroke-width': 1.5 }),
-    el('rect', { x: 25, y: 54, width: 58, height: FLOOR - 92, rx: 5, fill: C.panel, stroke: C.panelEdge }),
-    el('line', { x1: 54, y1: 76, x2: 54, y2: FLOOR - 70, stroke: C.frameEdge, 'stroke-width': 3, 'stroke-linecap': 'round' }),
-    el('rect', { x: 32, y: 76, width: 13, height: 22, rx: 2, fill: '#f4f6f5', opacity: 0.85 }),
-    // довга основа-лава
-    el('rect', { x: 88, y: FLOOR - 16, width: 258, height: 14, rx: 6, fill: C.frame, stroke: C.frameEdge }),
-    el('path', { d: `M300 ${FLOOR - 16} L300 ${FLOOR - 44}`, stroke: C.frame, 'stroke-width': 10 }),
-    el('rect', { x: 236, y: FLOOR - 56, width: 112, height: 15, rx: 7.5, fill: C.pad, stroke: C.padEdge, 'stroke-width': 1.5 }),
-    // упор для ніг
-    el('path', { d: `M132 ${FLOOR - 16} L150 ${FLOOR - 88}`, stroke: C.frame, 'stroke-width': 9, 'stroke-linecap': 'round' }),
-    el('rect', { x: 138, y: FLOOR - 92, width: 14, height: 46, rx: 4, fill: C.rubber, transform: `rotate(14 145 ${FLOOR - 69})` }),
-    // нижній блок і трос
-    el('circle', { cx: 100, cy: FLOOR - 40, r: 8, fill: C.metal, stroke: C.metalEdge, 'stroke-width': 2 }),
-    el('line', { x1: 100, y1: FLOOR - 48, x2: 196, y2: FLOOR - 112, stroke: '#7d8a86', 'stroke-width': 2.5 }),
-  ].join('');
+function build(exerciseId, mini) {
+  const S = scene3d({ yaw: 60, pitch: 22, mini });
+  floorShadow(S, 0, 30, 60, 112);
+  tower(S, [-30, 98, 0], [30, 130, 186]);
+  // довга основа-лава
+  beam(S, [0, -66, 4], [0, 98, 4], 11, 8, FR);
+  beam(S, [-22, -64, 3], [22, -64, 3], 8, 6, FR);
+  for (const y of [-48, 8]) beam(S, [0, y, 4], [0, y, 38], 8, 8, FR);
+  box(S, [-16, -58, 39], [16, 18, 47], P3.padShua);
+  // упор для ніг і нижній блок
+  beam(S, [0, 56, 6], [0, 64, 44], 40, 4, P3.rubber);
+  box(S, [-8, 86, 4], [8, 98, 26], FR);
+  disc(S, [0, 92, 16], [1, 0, 0], 6.5, P3.metal, { thick: 3 });
+  cable(S, [0, 90, 16], [0, 36, 80]);
+  tube(S, [[-7, 28, 80], [0, 36, 80], [7, 28, 80]], 3.2, P3.metal);
+  S.mark('handle', [0, 36, 80]);
+  human(S, {
+    pelvis: [0, -14, 56], lean: -0.05,
+    hand: (s) => [s * 7, 27, 80],
+    elbowPole: (s) => [s * 0.6, -1, -0.2],
+    ankle: (s) => [s * 12, 50, 24], kneePole: () => [0, 0, 1], toe: () => [0, 0.35, 1],
+  });
+  return renderScene(S, 'Тяга горизонтального блоку: сидячи на лаві, стопи в упорі — ручку до живота');
 }
 
-/** SVG тяги нижнього блоку з вибраною ручкою. */
-export function draw(values = {}, adjustments = []) {
-  const handle = pickAdj(adjustments, 'handle');
-  const sel = optValue(handle, values);
-  const parts = [machine()];
-  // карабін на кінці троса
-  const clip = el('ellipse', { cx: 199, cy: FLOOR - 114, rx: 4.5, ry: 6, fill: 'none', stroke: C.metalEdge, 'stroke-width': 2.5 });
-  if (handle) {
-    const art = sel ? handleArt(sel.id) : '';
-    const small = art
-      ? `<svg x="166" y="${FLOOR - 122}" width="66" height="44" viewBox="0 0 120 80" data-handle="${sel.id}">${art}</svg>`
-      : text(199, FLOOR - 88, '?', { 'font-size': 20, 'font-weight': 800, 'text-anchor': 'middle', fill: C.accent });
-    parts.push(zone('handle', `${handle.label}: змінити`,
-      ring(160, FLOOR - 130, 78, 56) + clip + small
-      + guide(199, FLOOR - 130, 199, 160)
-      // велика картка вибраної ручки
-      + el('rect', { x: 108, y: 10, width: 242, height: 150, rx: 16, fill: '#ffffff', stroke: C.accent, 'stroke-width': 2.5, 'stroke-dasharray': sel ? null : '6 4' })
-      + text(122, 32, 'Яку ручку чіпляти на карабін', { 'font-size': 13, 'font-weight': 600, fill: C.muted })
-      + (art
-        ? `<svg x="168" y="34" width="122" height="66" viewBox="0 0 120 80" data-handle="${sel.id}" class="sc-big-handle">${art}</svg>`
-        : text(229, 82, 'Натисніть, щоб вибрати', { 'font-size': 14, 'text-anchor': 'middle', fill: C.accent }))
-      + badge(handle, {
-        x: 116, y: 102, w: 226, h: 52,
-        value: sel ? sel.label : null, raw: sel ? sel.id : null, valueSize: 20,
-      })));
-  } else {
-    parts.push(clip);
-    parts.push(text(228, 110, 'Регулювань немає', { 'font-size': 14, 'text-anchor': 'middle', fill: C.muted }));
-  }
-  return svgRoot(W, FLOOR + 12, 'Схема тяги нижнього блоку: ручка', parts.join(''));
-}
+const mod = artModule({ id, ADJUSTMENTS, HINTS, PICKERS, build });
+export const art = mod.art;
+export const MARKERS = mod.MARKERS;

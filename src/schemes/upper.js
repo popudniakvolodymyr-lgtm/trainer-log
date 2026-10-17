@@ -1,15 +1,19 @@
-// Збірка схем верхньої частини тіла: груди, спина, плечі, руки, прес, гантелі (таск 06).
-// Кожен елемент SCHEMES — модуль схеми { id: schemeId з каталогу, ADJUSTMENTS, HINTS, draw(values, adjustments),
-// optionIcon? }. Малюнки — за фото з сайту gym/photos/ (номер у коментарі) і gym/my-photos/.
-// Тренажери: вигляд збоку, людина дивиться ліворуч; праворуч — колонка регулювань (лінійка + бейдж).
-// Вертикальна тяга (№21, lever-pulldown) живе тут; src/schemes/lever-pulldown.js лише реекспортує її.
+// Збірка схем верхньої частини тіла: груди, спина, плечі, руки, прес, гантелі.
+// Тренажери — модулі нового контракту (interfaces.md «T08 — каркас схем»):
+//   { id, ADJUSTMENTS, HINTS, art({exerciseId, mini}) → SVG, MARKERS(exerciseId) → {[adj]: {x, y}}, PICKERS }.
+// Малюнок art — об'ємний, у ракурсі ¾ (~45° згори-спереду): тренажер будується в 3D (сантиметри,
+// x — праворуч від людини, y — куди людина дивиться, z — угору), проєктується ортографічно й
+// малюється від дальнього до ближнього. Жодного тексту, бейджів, шкал — лише тренажер і людина;
+// мітки регулювань (MARKERS) — 3D-точки на деталях, які регулюють; шкали позицій — у PICKERS.
+// Малюнки — за фото gym/my-photos/ (з залу) і gym/photos/ (з сайту), номер — у коментарі.
+// Гантелі (12 вправ) лишаються на старому контракті draw — малюнок без змін, значок дає меню.
+// 3D-цеглинки експортуються для butterfly.js і low-row.js; lever-pulldown.js реекспортує свою схему звідси.
 // Сховані в каталозі (№1, №13, №23) схем не мають — для них заглушка.
 
-import {
-  C, el, esc, text, svgRoot, pickAdj, posValue, optValue, zone, ring, badge, ruler, guide, warnBar, legendLine, wrapText,
-} from './svg.js';
+import { C, el, esc, text, svgRoot, wrapText } from './svg.js';
 import { handleArt } from './handles.js';
 
+// --- 2D-цеглинки старого контракту (гантелі) ---
 const W = 360;
 const FLOOR = 300;
 const SKIN = '#e6c3a6';
@@ -18,11 +22,7 @@ const CLOTH = '#5d6973';
 const CLOTH_FAR = '#8d98a2';
 const SHOE = '#2b3230';
 const ARM = '#414c55';        // ближня рука — темніша, щоб було видно на тлі тулуба
-const ORANGE = '#e8772e';      // помаранчеві важелі тренажерів залу (як на фото)
-const ORANGE_EDGE = '#b4561b';
 const MOVE = '#c2410c';        // стрілка руху
-const LINE = '#dde3e0';
-const APPROX_BAR = '⚠ приблизно — уточнити в залі: кількість позицій';
 
 // --- геометрія ---
 const r1 = (n) => Math.round(n * 10) / 10;
@@ -60,30 +60,11 @@ const path = (d, w, color, extra = {}) => el('path', {
 const dot = (p, r, fill, stroke = null, sw = 2) => el('circle', {
   cx: r1(p[0]), cy: r1(p[1]), r, fill, stroke, 'stroke-width': stroke ? sw : null,
 });
-const metalDot = (p, r) => dot(p, r, C.metal, C.metalEdge, 2);
 const floorLine = (y = FLOOR, x2 = W - 8) => el('line', { x1: 8, y1: y + 1, x2, y2: y + 1, stroke: C.floor, 'stroke-width': 3 });
-const base = (x1, x2, y = FLOOR) => el('rect', { x: x1, y: y - 12, width: x2 - x1, height: 12, rx: 4, fill: C.frame });
 const pad = (x, y, w, h, extra = {}) => el('rect', {
   x, y, width: w, height: h, rx: Math.min(w, h) / 2, fill: C.pad, stroke: C.padEdge, 'stroke-width': 1.5, ...extra,
 });
-const orange = (a, b, w = 11) => bar(a, b, w, ORANGE, ORANGE_EDGE);
-const orangePath = (d, w = 11) => path(d, w + 3, ORANGE_EDGE) + path(d, w, ORANGE);
-const caption = (s, y) => text(14, y, s, { 'font-size': 12.5, fill: C.muted });
 const title = (s, x = 14, y = 24) => text(x, y, s, { 'font-size': 13.5, 'font-weight': 700, fill: C.muted });
-const divider = (y) => el('line', { x1: 10, y1: y, x2: W - 10, y2: y, stroke: LINE, 'stroke-width': 1.5 });
-
-/** Диск-млинець (вигляд на площину диска). */
-const plate = (p, r) => dot(p, r, '#2a2f2e', '#141817', 2)
-  + el('circle', { cx: r1(p[0]), cy: r1(p[1]), r: r1(r * 0.68), fill: 'none', stroke: '#4a5250', 'stroke-width': 2 })
-  + metalDot(p, Math.max(4, r * 0.22));
-
-/** Стійка з вагою (блоковий тренажер). */
-function stack(x, y, w, h) {
-  return el('rect', { x, y, width: w, height: h, rx: 10, fill: C.frame, stroke: C.frameEdge, 'stroke-width': 1.5 })
-    + el('rect', { x: x + 9, y: y + 16, width: w - 18, height: h - 40, rx: 5, fill: C.panel, stroke: C.panelEdge })
-    + el('line', { x1: x + w / 2, y1: y + 36, x2: x + w / 2, y2: y + h - 36, stroke: C.frameEdge, 'stroke-width': 3, 'stroke-linecap': 'round' })
-    + el('rect', { x: x + 14, y: y + 36, width: 11, height: 22, rx: 2, fill: '#f4f6f5', opacity: 0.85 });
-}
 
 /** Стрілка руху: пряма [a, b] або крива [a, керівна, b]. */
 function arrow(list, color = MOVE, w = 4) {
@@ -119,30 +100,6 @@ function person({ head, neck, hip, arms = [], legs = [], torso = 25 }) {
   return out.join('');
 }
 
-/** Людина сидить боком (дивиться ліворуч): таз hip, руки до кистей hands, стопа foot. */
-function seatedSide({ hip, hands, foot, lean = 0, armBend = 'down', torsoLen = 60 }) {
-  const neck = [hip[0] + lean, hip[1] - torsoLen];
-  const head = [neck[0] - 3, neck[1] - 19];
-  const sh = add(neck, 0, 6);
-  const shFar = add(sh, 5, -1);
-  const [hand, handFar = add(hand, 5, -1)] = hands;
-  // стегно майже горизонтально вперед, гомілка вниз до стопи
-  const knee = [hip[0] - 50, hip[1] + 2];
-  const ankle = [knee[0] - 4, foot[1]];
-  const ankleFar = add(ankle, 6, -1);
-  return person({
-    head, neck, hip,
-    legs: [
-      { far: true, from: add(hip, 3, -1), mid: add(knee, 6, -1), end: ankleFar, toe: add(ankleFar, -14, 0) },
-      { mid: knee, end: ankle, toe: add(ankle, -14, 0) },
-    ],
-    arms: [
-      { far: true, from: shFar, mid: bend(shFar, handFar, 38, 36, armBend), end: handFar },
-      { from: sh, mid: bend(sh, hand, 38, 36, armBend), end: hand },
-    ],
-  });
-}
-
 /** Людина сидить обличчям до нас: центр cx, таз на висоті hipY, кисті hands [права, ліва] (права — праворуч). */
 function seatedFront({ cx, hipY, hands, floor = FLOOR, armBend = 'down', elbowOut = 0 }) {
   const neck = [cx, hipY - 58];
@@ -167,557 +124,940 @@ function seatedFront({ cx, hipY, hands, floor = FLOOR, armBend = 'down', elbowOu
   return out.join('');
 }
 
-// --- регулювання ---
+// ======================================================================
+// 3D-цеглинки для малюнків у ракурсі ¾
+// ======================================================================
+const RAD = Math.PI / 180;
+export const vAdd = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+export const vSub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+export const vMul = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
+const vDot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const vCross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const vLen = (a) => Math.hypot(a[0], a[1], a[2]);
+const vNorm = (a) => {
+  const l = vLen(a) || 1;
+  return [a[0] / l, a[1] / l, a[2] / l];
+};
+export const vLerp = (a, b, t) => vAdd(a, vMul(vSub(b, a), t));
+const vAvg = (list) => vMul(list.reduce(vAdd, [0, 0, 0]), 1 / list.length);
+/** Точка з дзеркальної сторони: s = 1 — праворуч від людини (x > 0), s = −1 — ліворуч. */
+export const sx = (p, s) => [p[0] * s, p[1], p[2]];
+
+function rgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+/** Світліше (k > 0) або темніше (k < 0) на частку k. */
+export function tone(hex, k) {
+  const to = k >= 0 ? 255 : 0;
+  const t = Math.min(1, Math.abs(k));
+  return `#${rgb(hex).map((c) => Math.round(c + (to - c) * t).toString(16).padStart(2, '0')).join('')}`;
+}
+
+// Палітра (як на фото залу): графітові рами, помаранчеві важелі ARP, сіро-зелені подушки SHUA.
+export const P3 = {
+  bg: '#f8faf9',
+  floor: '#e2e8e4',
+  frame: '#4b555a',
+  panel: '#b4bcb7',      // сіра панель стійки з вагою SHUA
+  panelArp: '#a3aaae',   // сіра панель ARP
+  padShua: '#46685c',
+  pad: '#2f3537',        // чорні подушки ARP
+  orange: '#f07f22',
+  metal: '#c9d1d4',
+  rubber: '#26292b',
+  plate: '#2c3133',
+  plateGreen: '#2f9e44',
+  cable: '#66727a',
+  pin: '#d64545',
+  shirt: '#4d74aa',
+  pants: '#36414f',
+  skin: '#e9c5a5',
+  hair: '#4a382c',
+  shoe: '#22272a',
+};
+const FR = P3.frame;
 
 /**
- * Сидіння з лінійкою позицій і бейджем. Подушка рухається з позицією (step пікселів),
- * лінійка — окремо праворуч (рівні проміжки), пунктир від фіксатора до вибраної позначки.
- * → {svg, dy} — dy: зсув сидіння (людину зсувають на нього).
+ * Сцена: yaw — поворот камери від «прямо спереду» до правого боку людини, pitch — кут згори.
+ * Елементи збираються як 3D-примітиви й малюються від дальнього до ближнього (layer, потім глибина).
  */
-function seatControl(adj, values, o) {
-  const val = posValue(adj, values);
-  const n = adj ? adj.count : 5;
-  const mid = (n + 1) / 2;
-  const step = o.step ?? 6;
-  const floor = o.floor ?? FLOOR;
-  const dy = val ? -(val - mid) * step : 0;
-  const top = o.y + dy;
-  const art = [
-    el('rect', { x: o.post - 5, y: top + 12, width: 10, height: floor - 14 - top - 12, fill: C.metal, stroke: C.metalEdge }),
-    el('rect', { x: o.post - 9, y: floor - 48, width: 18, height: 36, rx: 3, fill: C.frame, stroke: C.frameEdge }),
-    pad(o.x, top, o.w, 15),
-    el('rect', { x: o.post + 9, y: floor - 35, width: 9, height: 6, fill: C.metalEdge }),
-    el('circle', { cx: o.post + 23, cy: floor - 32, r: 6.5, fill: '#d64545', stroke: '#8f2525', 'stroke-width': 1.5 }),
-  ].join('');
-  if (!adj) return { svg: art, dy };
-  const sp = Math.max(11, Math.min(18, 76 / Math.max(n - 1, 1)));
-  const yOf = (k) => o.rulerMid + (mid - k) * sp;
+export function scene3d({ yaw = 32, pitch = 22, mini = false } = {}) {
+  const a = yaw * RAD;
+  const p = pitch * RAD;
+  const R = [-Math.cos(a), Math.sin(a), 0];
+  const U = [-Math.sin(a) * Math.sin(p), -Math.cos(a) * Math.sin(p), Math.cos(p)];
+  const D = [Math.sin(a) * Math.cos(p), Math.cos(a) * Math.cos(p), Math.sin(p)];
+  const L = vNorm(vAdd(vAdd(vMul(R, -0.55), vMul(U, 0.8)), vMul(D, 0.5)));
+  const S = {
+    mini, D, L, items: [], markers: {},
+    P: (q) => [vDot(q, R), -vDot(q, U)],
+    Z: (q) => vDot(q, D),
+    add: (it) => {
+      S.items.push({ layer: 1, z: 0, m: 0, ...it });
+      return it;
+    },
+    mark: (id, q) => { S.markers[id] = q; },
+  };
+  return S;
+}
+
+const lit = (S, n, color) => {
+  const k = vDot(n, S.L);
+  return tone(color, k >= 0 ? k * 0.26 : k * 0.42);
+};
+const ptsT = (T, list) => list.map((p) => `${T.X(p)},${T.Y(p)}`).join(' ');
+
+const HEX_FACES = [[0, 2, 6, 4], [1, 3, 7, 5], [0, 1, 5, 4], [2, 3, 7, 6], [0, 1, 3, 2], [4, 5, 7, 6]];
+
+/** Опукле тіло з 8 вершин (біт 1 — вісь a, біт 2 — вісь b, біт 4 — вісь c): видимі грані з освітленням. */
+export function hexa(S, c8, color, o = {}) {
+  const center = vAvg(c8);
+  const faces = [];
+  for (const f of HEX_FACES) {
+    const q = f.map((i) => c8[i]);
+    let n = vNorm(vCross(vSub(q[1], q[0]), vSub(q[3], q[0])));
+    if (vDot(n, vSub(vAvg(q), center)) < 0) n = vMul(n, -1);
+    if (vDot(n, S.D) > 0.015) faces.push({ p: q.map(S.P), fill: lit(S, n, color) });
+  }
+  const edge = o.edge || tone(color, -0.45);
+  // soft — м'які обриси (тулуб людини): обведення кольором грані, заокруглені кути
+  const sw = (T) => (T.mini ? T.grow : o.soft ? r1(o.soft * T.s) : 0.8);
+  return S.add({
+    pts: c8.map(S.P), m: o.soft ? o.soft / 2 : 0, z: S.Z(center) + (o.bias || 0), layer: o.layer ?? 1, kind: o.kind,
+    svg: (T) => faces.map((f) => el('polygon', {
+      points: ptsT(T, f.p), fill: f.fill,
+      stroke: T.mini || o.soft ? f.fill : edge, 'stroke-width': sw(T), 'stroke-linejoin': 'round',
+    })).join(''),
+  });
+}
+
+/** Брусок за центром і трьома півосями. */
+export function obox(S, c, ax, ay, az, color, o = {}) {
+  const c8 = [];
+  for (let i = 0; i < 8; i++) {
+    c8.push(vAdd(vAdd(vAdd(c, vMul(ax, i & 1 ? 1 : -1)), vMul(ay, i & 2 ? 1 : -1)), vMul(az, i & 4 ? 1 : -1)));
+  }
+  return hexa(S, c8, color, o);
+}
+
+/** Брусок за двома кутами (осі — як у світу). */
+export function box(S, lo, hi, color, o = {}) {
+  const c = vLerp(lo, hi, 0.5);
+  return obox(S, c, [(hi[0] - lo[0]) / 2, 0, 0], [0, (hi[1] - lo[1]) / 2, 0], [0, 0, (hi[2] - lo[2]) / 2], color, o);
+}
+
+/** Прямокутна труба/балка від a до b, перетин w (убік) × h (товщина). */
+export function beam(S, a, b, w, h, color, o = {}) {
+  const ab = vSub(b, a);
+  const len = vLen(ab) || 1;
+  const u = vMul(ab, 1 / len);
+  let side = vCross(u, [0, 0, 1]);
+  if (vLen(side) < 0.35) side = vCross(u, [0, 1, 0]);
+  side = vNorm(side);
+  const third = vNorm(vCross(side, u));
+  const ext = o.ext ?? Math.min(w, h) / 2;
+  return obox(S, vLerp(a, b, 0.5), vMul(u, len / 2 + ext), vMul(side, w / 2), vMul(third, h / 2), color, o);
+}
+
+/** Ламана з брусків. */
+export function beams(S, list, w, h, color, o = {}) {
+  for (let i = 0; i < list.length - 1; i++) beam(S, list[i], list[i + 1], w, h, color, o);
+}
+
+/** Кругла труба (ручки, троси, кінцівки) — товста лінія з обведенням і відблиском. */
+export function tube(S, q, w, color, o = {}) {
+  const p = q.map(S.P);
+  return S.add({
+    pts: p, m: w / 2, z: (o.at ? S.Z(o.at) : q.reduce((m, x) => m + S.Z(x), 0) / q.length) + (o.bias || 0),
+    layer: o.layer ?? 1, kind: o.kind,
+    svg: (T) => {
+      const W = r1(Math.max(w * T.s * (T.mini ? 1.5 : 1), T.mini ? 2.2 : 1));
+      const d = `M${p.map((x) => `${T.X(x)} ${T.Y(x)}`).join(' L')}`;
+      let out = (o.edge === false ? '' : path(d, r1(W + (T.mini ? 0 : 1.7)), o.edgeColor || tone(color, -0.45)))
+        + path(d, W, color);
+      if (!T.mini && W >= 4.5 && o.shine !== false) {
+        const dx = -W * 0.2;
+        const dy = -W * 0.16;
+        const d2 = `M${p.map((x) => `${r1(T.X(x) + dx)} ${r1(T.Y(x) + dy)}`).join(' L')}`;
+        out += path(d2, r1(W * 0.26), tone(color, 0.32), { opacity: 0.7 });
+      }
+      return out;
+    },
+  });
+}
+
+/** Диск (млинець, шків, поворотна платформа): нормаль n, радіус r, товщина thick. */
+export function disc(S, c, n, r, color, o = {}) {
+  let nn = vNorm(n);
+  if (vDot(nn, S.D) < 0) nn = vMul(nn, -1);
+  const e1 = vNorm(Math.abs(nn[2]) < 0.9 ? vCross(nn, [0, 0, 1]) : vCross(nn, [1, 0, 0]));
+  const e2 = vCross(nn, e1);
+  const N = 30;
+  const th = o.thick ?? 3;
+  const ring = (cc, rr) => Array.from({ length: N }, (_, i) => {
+    const t = (i / N) * Math.PI * 2;
+    return vAdd(cc, vAdd(vMul(e1, Math.cos(t) * rr), vMul(e2, Math.sin(t) * rr)));
+  });
+  const front = ring(c, r);
+  const back = ring(vSub(c, vMul(nn, th)), r);
+  const band = [];
+  for (let i = 0; i < N; i++) {
+    const t = ((i + 0.5) / N) * Math.PI * 2;
+    const m = vAdd(vMul(e1, Math.cos(t)), vMul(e2, Math.sin(t)));
+    if (th > 0 && vDot(m, S.D) > -0.05) band.push([front[i], front[(i + 1) % N], back[(i + 1) % N], back[i]].map(S.P));
+  }
+  const fp = front.map(S.P);
+  const inner = o.plate ? ring(vAdd(c, vMul(nn, 0.2)), r * 0.7).map(S.P) : null;
+  const hub = o.plate ? ring(vAdd(c, vMul(nn, 0.4)), Math.max(2.4, r * 0.2)).map(S.P) : null;
+  const side = tone(color, -0.38);
+  return S.add({
+    pts: [...fp, ...back.map(S.P)], z: S.Z(c) + (o.bias || 0), layer: o.layer ?? 1, kind: o.kind,
+    svg: (T) => band.map((q) => el('polygon', {
+      points: ptsT(T, q), fill: side, stroke: side, 'stroke-width': T.mini ? T.grow : 0.6, 'stroke-linejoin': 'round',
+    })).join('')
+      + el('polygon', {
+        points: ptsT(T, fp), fill: color, stroke: T.mini ? color : tone(color, -0.5),
+        'stroke-width': T.mini ? T.grow : 0.8, 'stroke-linejoin': 'round',
+      })
+      + (inner && !T.mini ? el('polygon', { points: ptsT(T, inner), fill: 'none', stroke: tone(color, 0.16), 'stroke-width': 1.2 }) : '')
+      + (hub ? el('polygon', { points: ptsT(T, hub), fill: P3.metal, stroke: tone(P3.metal, -0.45), 'stroke-width': T.mini ? 0.5 : 0.8 }) : ''),
+  });
+}
+
+/** Куля (голова, кисть, ручка-фіксатор). */
+export function ball(S, c, r, color, o = {}) {
+  const p = S.P(c);
+  return S.add({
+    pts: [p], m: r, z: S.Z(c) + (o.bias || 0), layer: o.layer ?? 1, kind: o.kind,
+    svg: (T) => el('circle', {
+      cx: T.X(p), cy: T.Y(p), r: r1(r * T.s * (T.mini ? 1.3 : 1)), fill: color,
+      stroke: o.edge === false ? null : tone(color, -0.42), 'stroke-width': o.edge === false ? null : 0.8,
+    }),
+  });
+}
+
+/** Плаский многокутник (тінь на підлозі, панель). */
+export function flat(S, q, fill, o = {}) {
+  const p = q.map(S.P);
+  return S.add({
+    pts: p, z: (o.at ? S.Z(o.at) : S.Z(vAvg(q))) + (o.bias || 0), layer: o.layer ?? 1, kind: o.kind,
+    svg: (T) => el('polygon', {
+      points: ptsT(T, p), fill, stroke: o.stroke || null, 'stroke-width': o.stroke ? 0.8 : null, 'stroke-linejoin': 'round',
+    }),
+  });
+}
+
+/** Тінь під тренажером (еліпс на підлозі). */
+export function floorShadow(S, cx, cy, rx, ry) {
+  const q = Array.from({ length: 32 }, (_, i) => {
+    const t = (i / 32) * Math.PI * 2;
+    return [cx + Math.cos(t) * rx, cy + Math.sin(t) * ry, 0];
+  });
+  return flat(S, q, P3.floor, { layer: 0 });
+}
+
+/** Трос — тонка лінія. */
+export function cable(S, a, b) {
+  const p = [S.P(a), S.P(b)];
+  return S.add({
+    pts: p, z: (S.Z(a) + S.Z(b)) / 2, kind: 'detail',
+    svg: (T) => el('line', {
+      x1: T.X(p[0]), y1: T.Y(p[0]), x2: T.X(p[1]), y2: T.Y(p[1]), stroke: P3.cable, 'stroke-width': 1.4,
+    }),
+  });
+}
+
+/** Стійка з вагою: графітовий корпус і сірі панелі на видимих бічних гранях. */
+export function tower(S, lo, hi, panel = P3.panel) {
+  box(S, lo, hi, FR);
+  const inset = 5;
+  const faces = [
+    { n: [1, 0, 0], q: (e) => [[hi[0] + e, lo[1] + inset, lo[2] + 14], [hi[0] + e, hi[1] - inset, lo[2] + 14], [hi[0] + e, hi[1] - inset, hi[2] - inset], [hi[0] + e, lo[1] + inset, hi[2] - inset]] },
+    { n: [-1, 0, 0], q: (e) => [[lo[0] - e, lo[1] + inset, lo[2] + 14], [lo[0] - e, hi[1] - inset, lo[2] + 14], [lo[0] - e, hi[1] - inset, hi[2] - inset], [lo[0] - e, lo[1] + inset, hi[2] - inset]] },
+    { n: [0, 1, 0], q: (e) => [[lo[0] + inset, hi[1] + e, lo[2] + 14], [hi[0] - inset, hi[1] + e, lo[2] + 14], [hi[0] - inset, hi[1] + e, hi[2] - inset], [lo[0] + inset, hi[1] + e, hi[2] - inset]] },
+    { n: [0, -1, 0], q: (e) => [[lo[0] + inset, lo[1] - e, lo[2] + 14], [hi[0] - inset, lo[1] - e, lo[2] + 14], [hi[0] - inset, lo[1] - e, hi[2] - inset], [lo[0] + inset, lo[1] - e, hi[2] - inset]] },
+  ];
+  for (const f of faces) {
+    if (vDot(f.n, S.D) <= 0.05) continue;
+    const q = f.q(0.4);
+    flat(S, q, lit(S, f.n, panel), { stroke: tone(panel, -0.35), bias: 0.6 });
+    // проріз з направляючою стека — деталь (у значку не потрібна)
+    const mid = vLerp(vLerp(q[0], q[1], 0.5), vLerp(q[3], q[2], 0.5), 0.12);
+    const top = vLerp(vLerp(q[0], q[1], 0.5), vLerp(q[3], q[2], 0.5), 0.86);
+    const p = [S.P(mid), S.P(top)];
+    S.add({
+      pts: p, z: S.Z(vAvg(q)) + 0.8, kind: 'detail',
+      svg: (T) => el('line', { x1: T.X(p[0]), y1: T.Y(p[0]), x2: T.X(p[1]), y2: T.Y(p[1]), stroke: tone(panel, -0.55), 'stroke-width': 2.2, 'stroke-linecap': 'round' }),
+    });
+  }
+}
+
+/** Млинець на втулці: c — центр, axis — напрям втулки назовні (одиничний). */
+export function plateOn(S, c, axis, r, color = P3.plate) {
+  tube(S, [vSub(c, vMul(axis, 7)), vAdd(c, vMul(axis, 9))], 4.5, P3.metal);
+  disc(S, c, axis, r, color, { thick: 4, plate: true });
+}
+
+/** Ручка (гумовий хват). */
+export const grip = (S, q, o = {}) => tube(S, q, o.w ?? 4.6, P3.rubber, o);
+
+/**
+ * Сидіння на стійці з фіксатором (шпилька збоку) — регулювання висоти.
+ * c — центр подушки [x, y], top — висота верху подушки; повертає точку фіксатора (для мітки).
+ */
+export function seatOnPost(S, { x = 0, y = 0, top = 46, w = 38, d = 36, color = P3.pad, pin = true }) {
+  box(S, [x - 5, y - 5, 2], [x + 5, y + 5, 26], FR);
+  box(S, [x - 3.4, y - 3.4, 24], [x + 3.4, y + 3.4, top - 6], P3.metal);
+  box(S, [x - w / 2, y - d / 2, top - 7], [x + w / 2, y + d / 2, top], color);
+  const knob = [x + 8.5, y + 3, 18];
+  if (pin) {
+    tube(S, [[x + 4, y + 3, 18], knob], 2.4, P3.metal, { kind: 'detail' });
+    ball(S, knob, 3, P3.pin, { kind: 'detail' });
+  }
+  return knob;
+}
+
+/** Інверсна кінематика двох ланок: суглоб між a і b, зігнутий у бік pole. */
+function ik(a, b, l1, l2, pole) {
+  const ab = vSub(b, a);
+  const d = Math.max(0.1, Math.min(vLen(ab), l1 + l2 - 0.01));
+  const u = vNorm(ab);
+  const x = (l1 * l1 - l2 * l2 + d * d) / (2 * d);
+  const h = Math.sqrt(Math.max(0, l1 * l1 - x * x));
+  const q = vNorm(vSub(pole, vMul(u, vDot(pole, u))));
+  return vAdd(vAdd(a, vMul(u, x)), vMul(q, h));
+}
+
+/**
+ * Людина (у значку не малюється). Обидві сторони будуються однаково — поза симетрична.
+ * o: pelvis — центр таза; face — куди дивиться (горизонтально); lean — нахил тулуба вперед (−назад);
+ *    hand(s), ankle(s) — точки кистей і кісточок (s = 1 праворуч, x > 0); elbowPole(s), kneePole(s) —
+ *    куди згинаються лікті й коліна; elbow(s)/knee(s) — задати суглоб явно; toe(s) — напрям стопи.
+ */
+export function human(S, o) {
+  const up = [0, 0, 1];
+  const f = vNorm(o.face || [0, 1, 0]);
+  let right = vNorm(vCross(f, up));
+  if (right[0] < 0) right = vMul(right, -1);   // s = 1 завжди з боку x > 0
+  const t = vNorm(vAdd(up, vMul(f, o.lean || 0)));
+  const fwd = vNorm(vCross(t, vNorm(vCross(f, up))));
+  const pel = o.pelvis;
+  const at = (k) => vAdd(pel, vMul(t, k));
+  const chest = at(46);
+  const neckBase = at(49);
+  const head = vAdd(at(64), vMul(fwd, 1.5));
+  const kind = 'person';
+  const torsoCenter = at(22);
+  const zTorso = S.Z(torsoCenter);
+  const shade = (q, color) => (S.Z(q) < zTorso - 6 ? tone(color, -0.16) : color);
+
+  // таз (штани) і тулуб (футболка) — об'ємні
+  const corner = (base, hw, hd, i) => vAdd(vAdd(base, vMul(right, i & 1 ? hw : -hw)), vMul(fwd, i & 2 ? hd : -hd));
+  const hexOf = (b0, b1, w0, w1, d0, d1) => Array.from({ length: 8 }, (_, i) => (i & 4 ? corner(b1, w1, d1, i) : corner(b0, w0, d0, i)));
+  hexa(S, hexOf(at(-6), at(10), 11.5, 12.5, 9, 9), P3.pants, { kind, soft: 3 });
+  hexa(S, hexOf(at(7), at(47), 12.5, 15.5, 8.5, 9), P3.shirt, { kind, bias: 0.5, soft: 4 });
+
+  for (const s of [1, -1]) {
+    const side = vMul(right, s);
+    const sh = vAdd(vAdd(chest, vMul(side, 16)), vMul(t, -2));
+    const hip = vAdd(pel, vMul(side, 8.5));
+    const hand = o.hand(s);
+    const ankle = o.ankle(s);
+    const elbow = o.elbow ? o.elbow(s) : ik(sh, hand, 28, 27, o.elbowPole ? o.elbowPole(s) : [s, 0, -1]);
+    const knee = o.knee ? o.knee(s) : ik(hip, ankle, 45, 44, o.kneePole ? o.kneePole(s) : [0, 0.4, 1]);
+    const toeDir = vNorm(o.toe ? o.toe(s) : f);
+    const toe = vAdd(ankle, vMul(toeDir, 15));
+    // ноги
+    tube(S, [hip, knee], 13.5, shade(vLerp(hip, knee, 0.5), P3.pants), { kind });
+    tube(S, [knee, ankle], 10.5, shade(vLerp(knee, ankle, 0.5), P3.pants), { kind });
+    tube(S, [vSub(ankle, vMul(toeDir, 3)), toe], 9.5, P3.shoe, { kind, shine: false });
+    // руки: рукав, плече, передпліччя, кисть
+    const sleeve = vLerp(sh, elbow, 0.42);
+    tube(S, [sh, sleeve], 11.5, shade(sh, P3.shirt), { kind, bias: 0.4 });
+    tube(S, [sleeve, elbow], 8.6, shade(elbow, P3.skin), { kind });
+    tube(S, [elbow, hand], 8, shade(vLerp(elbow, hand, 0.5), P3.skin), { kind });
+    ball(S, hand, 4.6, shade(hand, P3.skin), { kind, bias: 2 });
+  }
+  // шия і голова (волосся ззаду — видно, куди дивиться людина)
+  tube(S, [neckBase, at(57)], 9, P3.skin, { kind, shine: false });
+  ball(S, vAdd(vAdd(head, vMul(fwd, -2.6)), vMul(t, 1.6)), 11, P3.hair, { kind, edge: false });
+  ball(S, vAdd(head, vMul(fwd, 1.2)), 10, P3.skin, { kind, bias: 0.2 });
+}
+
+/**
+ * Малюнок сцени: SVG і мітки. Повний — 360 у ширину; значок (mini) — 120×100 без людини й дрібниць.
+ */
+export function renderScene(S, label, { maxH = 340 } = {}) {
+  const mini = S.mini;
+  const items = S.items.filter((it) => !(mini && (it.kind === 'person' || it.kind === 'detail')));
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const it of items) {
+    for (const p of it.pts) {
+      x0 = Math.min(x0, p[0] - it.m);
+      y0 = Math.min(y0, p[1] - it.m);
+      x1 = Math.max(x1, p[0] + it.m);
+      y1 = Math.max(y1, p[1] + it.m);
+    }
+  }
+  const bw = Math.max(1, x1 - x0);
+  const bh = Math.max(1, y1 - y0);
+  const Wd = mini ? 120 : 360;
+  const pad = mini ? 4 : 14;
+  const Hmax = mini ? 100 : maxH;
+  const s = Math.min(mini ? 10 : 1.75, (Wd - 2 * pad) / bw, (Hmax - 2 * pad) / bh);
+  const H = mini ? 100 : Math.round(bh * s + 2 * pad);
+  const ox = (Wd - bw * s) / 2;
+  const oy = (H - bh * s) / 2;
+  const T = {
+    X: (p) => r1((p[0] - x0) * s + ox), Y: (p) => r1((p[1] - y0) * s + oy), s, mini, grow: mini ? 2.2 : 0,
+  };
+  const sorted = items.map((it, i) => ({ it, i }))
+    .sort((a, b) => (a.it.layer - b.it.layer) || (a.it.z - b.it.z) || (a.i - b.i))
+    .map((x) => x.it);
+  const body = sorted.map((it) => (it.kind === 'person' ? `<g class="sc-person">${it.svg(T)}</g>` : it.svg(T))).join('');
+  const head = mini
+    ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${Wd} ${H}" class="scheme-mini" aria-hidden="true">`
+    : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${Wd} ${H}" class="scheme-svg scheme-art" role="img" aria-label="${esc(label)}">`
+      + el('rect', { x: 0, y: 0, width: Wd, height: H, rx: 16, fill: P3.bg });
+  const markers = {};
+  for (const [id, q] of Object.entries(S.markers)) {
+    const p = S.P(q);
+    markers[id] = { x: T.X(p), y: T.Y(p) };
+  }
+  return { svg: `${head}${body}</svg>`, markers };
+}
+
+/**
+ * Модуль схеми нового контракту. build(exerciseId, mini) → {svg, markers} (renderScene).
+ * Малюнок і мітки кешуються на вправу.
+ */
+export function artModule({ id, ADJUSTMENTS = [], HINTS = {}, PICKERS = {}, build }) {
+  const cache = new Map();
+  const get = (exerciseId, mini) => {
+    const key = `${exerciseId}|${mini ? 1 : 0}`;
+    if (!cache.has(key)) cache.set(key, build(exerciseId ?? null, !!mini));
+    return cache.get(key);
+  };
   return {
-    dy,
-    svg: zone(adj.id, `${adj.label}: змінити`,
-      ring(o.post - 16, floor - 58, 54, 46) + art
-      + ruler(adj, { x: o.rulerX, yOf, selected: val, hints: o.hints })
-      + (val ? guide(o.post + 31, floor - 32, o.rulerX - 9, yOf(val)) : '')
-      + fitBadge(adj, { x: o.badge[0], y: o.badge[1], w: 104, h: 62, value: val ? String(val) : null, raw: val })),
+    id, ADJUSTMENTS, HINTS, PICKERS,
+    art: ({ exerciseId = null, mini = false } = {}) => get(exerciseId, mini).svg,
+    MARKERS: (exerciseId) => get(exerciseId ?? null, false).markers,
   };
 }
 
-/** Позначка варіанта на малюнку: кружечок з номером. */
-function optMarker(p, num, on, color = C.accent) {
-  return dot(p, on ? 12 : 10.5, on ? color : '#ffffff', color, 2)
-    + text(p[0], p[1] + 4.8, num, { 'font-size': on ? 14 : 13, 'font-weight': 800, 'text-anchor': 'middle', fill: on ? '#ffffff' : color });
+// ======================================================================
+// PICKERS — наочність у вікні вибору (тут можна й підписи)
+// ======================================================================
+const ACC = C.accent;
+const FONT = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+function pickerSvg(w, h, label, inner) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" class="picker-svg" role="img"`
+    + ` aria-label="${esc(label)}" font-family="${FONT}">${el('rect', { x: 0, y: 0, width: w, height: h, fill: P3.bg })}${inner}</svg>`;
+}
+/** Кнопка вибору: data-pick і клас is-on для вибраного. */
+const pickG = (value, on, label, inner) => el('g', { 'data-pick': value, class: on ? 'pk is-on' : 'pk', 'aria-label': label },
+  el('title', {}, esc(label)) + inner);
+const fit = (s, room, max) => r1(Math.max(10, Math.min(max, room / (String(s).length * 0.58))));
+
+export const SEAT_HINTS = { seat: { first: 'найнижче', last: 'найвище' } };
+export const ROLLER_HINTS = { roller: { first: 'найнижче', last: 'найвище' } };
+
+/**
+ * Висота на стійці з отворами: kind 'seat' — подушка сидіння, 'roller' — притискний валік над стегном.
+ * Праворуч — рядки 1…N (N угорі) з поясненням крайніх.
+ */
+export function heightPicker(kind, hints) {
+  return (value, adj) => {
+    const n = Math.max(1, Math.min(12, Number(adj.count) || 5));
+    const h = hints[adj.id] || { first: 'найнижче', last: 'найвище' };
+    const sel = Number(value) >= 1 && Number(value) <= n && Number.isInteger(Number(value)) ? Number(value) : null;
+    const W = 330;
+    const H = 230;
+    const rowH = Math.min(38, 196 / n);
+    const yOf = (k) => 16 + (n - k) * rowH + rowH / 2;
+    const out = [];
+    const px = 84;
+    // стійка з отворами
+    out.push(el('rect', { x: px - 7, y: yOf(n) - 16, width: 14, height: H - yOf(n) + 6, rx: 3, fill: P3.metal, stroke: tone(P3.metal, -0.45) }));
+    out.push(el('rect', { x: px - 12, y: H - 46, width: 24, height: 40, rx: 4, fill: FR }));
+    out.push(el('rect', { x: 24, y: H - 10, width: 130, height: 6, rx: 3, fill: FR }));
+    for (let k = 1; k <= n; k++) {
+      out.push(el('circle', { cx: px, cy: yOf(k), r: 3.6, fill: sel === k ? P3.pin : '#59636a' }));
+    }
+    const at = sel ? yOf(sel) : yOf((n + 1) / 2);
+    const ghost = sel ? 1 : 0.35;
+    if (kind === 'seat') {
+      out.push(el('rect', { x: 30, y: at - 30, width: 108, height: 18, rx: 9, fill: P3.pad, opacity: ghost }));
+      out.push(el('rect', { x: px - 4, y: at - 14, width: 8, height: 14, fill: tone(P3.metal, -0.2), opacity: ghost }));
+    } else {
+      // стегно сидячої людини і валік над ним
+      out.push(el('rect', { x: 26, y: H - 64, width: 120, height: 22, rx: 11, fill: P3.pants, opacity: 0.85 }));
+      out.push(el('rect', { x: px - 4, y: at, width: 8, height: 14, fill: tone(P3.metal, -0.2), opacity: ghost }));
+      out.push(el('circle', { cx: px, cy: at - 13, r: 13, fill: P3.pad, opacity: ghost }));
+    }
+    if (sel) {
+      out.push(el('circle', { cx: px + 13, cy: yOf(sel), r: 4.5, fill: P3.pin, stroke: '#8f2525' }));
+      out.push(el('line', { x1: px + 20, y1: yOf(sel), x2: 168, y2: yOf(sel), stroke: ACC, 'stroke-width': 2 }));
+    }
+    for (let k = 1; k <= n; k++) {
+      const on = sel === k;
+      const y = yOf(k);
+      const word = k === 1 ? h.first : k === n ? h.last : '';
+      out.push(pickG(k, on, `${k}${word ? ` — ${word}` : ''}`,
+        el('rect', { x: 170, y: r1(y - rowH / 2 + 3), width: 150, height: r1(rowH - 6), rx: 10, fill: on ? ACC : '#ffffff', stroke: on ? ACC : '#c5cdc9', 'stroke-width': 1.5 })
+        + text(190, r1(y + 6), k, { 'font-size': r1(Math.min(18, rowH * 0.55)), 'font-weight': 800, 'text-anchor': 'middle', fill: on ? '#ffffff' : C.ink })
+        + (word ? text(208, r1(y + 5), word, { 'font-size': r1(Math.min(14, rowH * 0.42)), fill: on ? '#dbe8f5' : C.muted }) : '')));
+    }
+    return pickerSvg(W, H, `${adj.label}: позиції 1…${n}`, out.join(''));
+  };
 }
 
-/** Кнопки-варіанти рядком (з номером або кольором). → SVG; кожна — data-adj + data-opt. */
-function optionChips(adj, sel, { y, x0 = 12, width = W - 24, numbered = true }) {
+/** Картки варіантів поруч: малюнок art(optionId, on) у полі 120×86 + назва варіанта. */
+function optionCards(value, adj, art, title) {
   const opts = (adj.options || []).filter((o) => !o.deleted);
-  const gap = 8;
-  const w = (width - gap * (opts.length - 1)) / Math.max(opts.length, 1);
-  return opts.map((opt, i) => {
-    const on = sel && sel.id === opt.id;
-    const color = opt.color || C.accent;
-    const x = r1(x0 + i * (w + gap));
-    const label = String(opt.label);
-    const size = Math.max(10, Math.min(14, (w - 44) / (label.length * 0.6)));
-    const mark = numbered
-      ? text(x + 18, y + 22, i + 1, { 'font-size': 14, 'font-weight': 800, 'text-anchor': 'middle', fill: on ? color : '#ffffff' })
-      : '';
-    return el('g', {
-      'data-adj': adj.id, 'data-opt': opt.id, class: `sc-zone sc-grip${on ? ' is-selected' : ''}`,
-      role: 'button', tabindex: 0, 'aria-label': `${adj.label}: ${label}`,
-    }, el('title', {}, esc(label))
-      + el('rect', { x, y, width: r1(w), height: 34, rx: 17, fill: on ? color : '#ffffff', stroke: color, 'stroke-width': on ? 3 : 2 })
-      + el('circle', { cx: x + 18, cy: y + 17, r: 10, fill: on ? '#ffffff' : color })
-      + mark
-      + text(x + 34, y + 22, label, { 'font-size': r1(size), 'font-weight': on ? 800 : 600, fill: on ? '#ffffff' : C.ink }));
-  }).join('');
+  const W = 330;
+  const gap = 10;
+  const n = Math.max(1, opts.length);
+  const cw = (W - 20 - gap * (n - 1)) / n;
+  const H = 150;
+  const out = opts.map((o, i) => {
+    const on = value === o.id;
+    const x = r1(10 + i * (cw + gap));
+    const k = Math.min(1, (cw - 12) / 120);
+    const pic = art(o.id, on);
+    return pickG(o.id, on, `${adj.label}: ${o.label}`,
+      el('rect', { x, y: 10, width: r1(cw), height: H - 20, rx: 14, fill: on ? '#e7f0fa' : '#ffffff', stroke: on ? ACC : '#c5cdc9', 'stroke-width': on ? 3 : 1.5 })
+      + (pic ? el('g', { transform: `translate(${r1(x + (cw - 120 * k) / 2)} 16) scale(${r1(k * 100) / 100})` }, pic) : '')
+      + text(r1(x + cw / 2), H - 22, o.label, {
+        'font-size': fit(o.label, cw - 14, 15), 'font-weight': on ? 800 : 600, 'text-anchor': 'middle', fill: on ? ACC : C.ink,
+      }));
+  });
+  return pickerSvg(W, H, title, out.join(''));
 }
 
-/** Бейдж варіанта (назва вибраного). */
-const optBadge = (adj, sel, x, y, w = 104, h = 62, swatch = null) => fitBadge(adj, {
-  x, y, w, h, value: sel ? sel.label : null, raw: sel ? sel.id : null, valueSize: 20, swatch,
-});
-
-/** Бейдж, у якому довга назва регулювання («Притискний валік») зменшується, щоб влізла. */
-function fitBadge(adj, o) {
-  const svg = badge(adj, o);
-  const size = Math.min(12.5, ((o.w || 100) - 16) / (String(adj.label).length * 0.56));
-  return size < 12.5 ? svg.replace('font-size="12.5"', `font-size="${r1(Math.max(9, size))}"`) : svg;
+/** 5 ручок блоку малюнками (gym/my-photos/ruchky-stiyka.png). */
+export function handlePicker(value, adj) {
+  const opts = (adj.options || []).filter((o) => !o.deleted);
+  const cols = 3;
+  const cw = 100;
+  const ch = 92;
+  const rows = Math.ceil(opts.length / cols);
+  const W = 330;
+  const H = rows * (ch + 8) + 8;
+  const out = opts.map((o, i) => {
+    const on = value === o.id;
+    const row = Math.floor(i / cols);
+    const inRow = Math.min(cols, opts.length - row * cols);
+    const x = r1((W - inRow * cw - (inRow - 1) * 10) / 2 + (i % cols) * (cw + 10));
+    const y = 8 + row * (ch + 8);
+    const art = handleArt(o.id);
+    return pickG(o.id, on, `${adj.label}: ${o.label}`,
+      el('rect', { x, y, width: cw, height: ch, rx: 12, fill: on ? '#e7f0fa' : '#ffffff', stroke: on ? ACC : '#c5cdc9', 'stroke-width': on ? 3 : 1.5 })
+      + (art ? `<svg x="${x + 8}" y="${y + 4}" width="${cw - 16}" height="56" viewBox="0 0 120 80" data-handle="${esc(o.id)}">${art}</svg>` : '')
+      + text(r1(x + cw / 2), y + ch - 12, o.label, {
+        'font-size': fit(o.label, cw - 10, 12.5), 'font-weight': on ? 800 : 600, 'text-anchor': 'middle', fill: on ? ACC : C.ink,
+      }));
+  });
+  return pickerSvg(W, H, `${adj.label}: яку ручку чіпляти на карабін`, out.join(''));
 }
-
-const isApprox = (...adjs) => adjs.some((a) => a && (a.approx || a.unknown));
-
-/** Низ схеми: легенди позицій, плашка ⚠, підпис руху. → {svg, y} */
-function footer(y, { legends = [], hints = {}, approx = false, note = null }) {
-  const out = [];
-  for (const adj of legends.filter(Boolean)) {
-    out.push(legendLine(adj, hints, 12, y));
-    y += 18;
-  }
-  if (approx) {
-    out.push(warnBar(10, y - 8, W - 20, APPROX_BAR));
-    y += 26;
-  }
-  if (note) {
-    out.push(caption(note, y + 4));
-    y += 18;
-  }
-  return { svg: out.join(''), y };
-}
-
-const SEAT_HINTS = { seat: { first: 'найнижче', last: 'найвище' } };
-// Стандарт сидіння збоку: подушка x 140…224, стійка 196, лінійка праворуч.
-const SIDE_SEAT = { x: 140, w: 84, y: 232, post: 196, rulerX: 270, rulerMid: 236, badge: [250, 124], hints: SEAT_HINTS };
 
 // ======================================================================
-// №2 «Жим у тренажері» (груди, диски) — фото 02: сидиш, помаранчеві важелі з дисками
-// заходять згори, ручки перед грудьми, жим уперед. Регулювання: висота сидіння.
+// Спільні частини тренажерів
 // ======================================================================
-const plateChestPress = {
+const SEAT_TOP = 46;
+
+/** Рама-основа: поздовжні бруски на підлозі й поперечки. */
+function baseFrame(S, { x = 40, y0 = -55, y1 = 50, cross = [], mid = null }) {
+  for (const s of [-1, 1]) beam(S, [s * x, y0, 3], [s * x, y1, 3], 7, 6, FR);
+  for (const y of cross) beam(S, [-x, y, 3], [x, y, 3], 7, 6, FR);
+  if (mid) beam(S, [0, mid[0], 3], [0, mid[1], 3], 7, 6, FR);
+}
+
+/** Сидить обличчям уперед (+y): стопи на підлозі. */
+const seatedLegs = (y = 44, w = 17) => ({ ankle: (s) => [s * w, y, 9], kneePole: () => [0, 0.35, 1] });
+
+// ======================================================================
+// №2 «Жим у тренажері» (груди, диски) — фото gym/my-photos/zhym-u-trenazheri-*.png і сайту 02:
+// сидиш обличчям уперед, помаранчеві важелі від осі вгорі позаду заходять згори, ручки біля грудей,
+// млинці на кінцях важелів; жим уперед-угору по дузі. Регулювання: висота сидіння.
+// ======================================================================
+const plateChestPress = artModule({
   id: 'plate-chest-press',
   ADJUSTMENTS: ['seat'],
   HINTS: SEAT_HINTS,
-  draw(values = {}, adjustments = []) {
-    const seat = pickAdj(adjustments, 'seat');
-    const sc = seatControl(seat, values, SIDE_SEAT);
-    const hip = [210, 236 + sc.dy];
-    const handle = [140, 172];
-    const parts = [
-      floorLine(FLOOR, 250), base(18, 250),
-      // задня стійка до осі важелів
-      el('polygon', { points: `228,${FLOOR - 12} 246,${FLOOR - 12} 246,58 232,58`, fill: C.frame, stroke: C.frameEdge, 'stroke-width': 1.5 }),
-      pad(222, 126, 18, 108),
-      sc.svg,
-      seatedSide({ hip, hands: [handle, add(handle, 6, -2)], foot: [128, FLOOR - 8], lean: 2 }),
-      // важіль: від осі над головою вперед і вниз до ручки
-      plate([168, 66], 27),
-      orangePath(`M239 62 L172 52 Q142 50 142 92 L142 160`, 12),
-      bar([132, 160], [148, 186], 11, C.rubber),
-      metalDot([239, 62], 8),
-      arrow([[120, 150], [72, 150]]),
-      text(68, 140, 'від себе', { 'font-size': 12, fill: MOVE, 'font-weight': 700 }),
-      title('Жим від грудей'),
-    ];
-    const f = footer(FLOOR + 26, { legends: [seat], hints: SEAT_HINTS, approx: isApprox(seat) });
-    parts.push(f.svg);
-    return svgRoot(W, f.y + 4, 'Схема тренажера «Жим у тренажері» (груди): висота сидіння', parts.join(''));
+  PICKERS: { seat: heightPicker('seat', SEAT_HINTS) },
+  build(exerciseId, mini) {
+    const S = scene3d({ yaw: 28, pitch: 24, mini });
+    floorShadow(S, 0, -4, 82, 74);
+    baseFrame(S, { x: 42, y0: -62, y1: 54, cross: [-58, 48], mid: [-58, 0] });
+    for (const s of [-1, 1]) beam(S, [s * 42, -58, 2], [s * 44, -50, 174], 8, 8, FR);
+    beam(S, [-48, -50, 174], [48, -50, 174], 8, 8, FR);
+    // спинка (трохи відхилена)
+    beam(S, [0, -56, 5], [0, -40, 118], 7, 7, FR);
+    beam(S, [0, -26, 56], [0, -34, 128], 36, 8, P3.pad);
+    S.mark('seat', seatOnPost(S, { top: SEAT_TOP }));
+    for (const s of [-1, 1]) {
+      // вісь угорі позаду, важіль уперед і вниз до ручки
+      box(S, [s * 44 - 5, -55, 166], [s * 44 + 5, -45, 178], FR);
+      beams(S, [[s * 47, -48, 170], [s * 50, 2, 160], [s * 46, 27, 118]], 7, 6, P3.orange);
+      beam(S, [s * 46, 27, 116], [s * 40, 27, 115], 5, 5, P3.orange);
+      grip(S, [[s * 40, 27, 94], [s * 40, 28, 116]]);
+      plateOn(S, [s * 59, 8, 152], [s, 0, 0], 21);
+    }
+    human(S, {
+      pelvis: [0, -6, SEAT_TOP + 9], lean: -0.14,
+      hand: (s) => [s * 40, 27, 104],
+      elbowPole: (s) => [s, -0.4, -0.7],
+      ...seatedLegs(46, 19),
+    });
+    return renderScene(S, 'Тренажер «Жим у тренажері»: сидячи, ручки біля грудей — жим уперед');
   },
-};
+});
 
 // ======================================================================
-// №12 Відведення рук сидячи — фото 12: сидиш обличчям до нас, лікті на помаранчевих важелях,
-// піднімаєш лікті в сторони. Регулювання: висота сидіння (вісь важеля — на рівні плеча).
+// №12 Відведення рук сидячи (ARP) — фото gym/my-photos/vidvedennya-ruk-*.png і сайту 12:
+// стійка з вагою позаду, помаранчеві важелі від осей позаду плечей, подушки під лікті;
+// руки (лікті) йдуть у сторони вгору. Регулювання — лише висота сидіння.
 // ======================================================================
-const lateralRaise = {
+const lateralRaise = artModule({
   id: 'lateral-raise',
   ADJUSTMENTS: ['seat'],
   HINTS: SEAT_HINTS,
-  draw(values = {}, adjustments = []) {
-    const seat = pickAdj(adjustments, 'seat');
-    const cx = 128;
-    const sc = seatControl(seat, values, { ...SIDE_SEAT, x: cx - 46, w: 92, post: cx, badge: [250, 40] });
-    const hipY = 236 + sc.dy;
-    const shY = hipY - 52;
-    const elbows = [[cx + 78, shY - 22], [cx - 78, shY - 22]];
-    const hands = [[cx + 84, shY + 6], [cx - 84, shY + 6]];
-    const parts = [
-      floorLine(FLOOR, 250), base(30, 230),
-      // корпус тренажера позаду
-      el('rect', { x: cx - 64, y: 40, width: 128, height: FLOOR - 52, rx: 12, fill: C.frame, stroke: C.frameEdge, 'stroke-width': 1.5 }),
-      el('rect', { x: cx - 50, y: 58, width: 100, height: 120, rx: 6, fill: C.panel, stroke: C.panelEdge }),
-      pad(cx - 24, 120, 48, 104),
-      sc.svg,
-      seatedFront({ cx, hipY, hands }),
-    ];
-    // важелі: від осі над плечем до подушки біля ліктя
-    for (const [i, s] of [[0, 1], [1, -1]]) {
-      const pivot = [cx + s * 28, 172];
-      parts.push(orange(pivot, add(elbows[i], s * 14, -4), 13));
-      parts.push(dot(add(elbows[i], s * 6, -10), 11, C.rubber));
-      parts.push(metalDot(pivot, 7));
-      parts.push(arrow([[cx + s * 112, shY + 22], [cx + s * 126, shY - 20], [cx + s * 104, shY - 54]]));
+  PICKERS: { seat: heightPicker('seat', SEAT_HINTS) },
+  build(exerciseId, mini) {
+    const S = scene3d({ yaw: 24, pitch: 24, mini });
+    floorShadow(S, 0, -30, 80, 72);
+    baseFrame(S, { x: 34, y0: -96, y1: 40, cross: [34], mid: [-70, 0] });
+    tower(S, [-30, -100, 0], [30, -68, 150], P3.panelArp);
+    // спинка на стійці
+    beam(S, [0, -66, 70], [0, -32, 70], 7, 7, FR);
+    beam(S, [0, -28, 58], [0, -30, 116], 34, 8, P3.pad);
+    // кронштейн осей важелів на рівні плечей
+    beam(S, [-26, -60, 108], [26, -60, 108], 8, 8, FR);
+    beam(S, [0, -68, 108], [0, -60, 108], 8, 8, FR);
+    S.mark('seat', seatOnPost(S, { top: SEAT_TOP }));
+    const sh = (s) => [s * 16, -8, 101];
+    const a = 46 * RAD;
+    const elbow = (s) => vAdd(sh(s), [s * Math.sin(a) * 28, 0, -Math.cos(a) * 28]);
+    const hand = (s) => vAdd(elbow(s), [s * 2, 25, 3]);
+    for (const s of [-1, 1]) {
+      const pivot = [s * 20, -48, 104];
+      beam(S, [s * 20, -60, 104], pivot, 6, 6, FR);
+      disc(S, pivot, [0, 1, 0], 9, P3.orange, { thick: 4 });
+      // важіль паралельно плечу позаду, далі вперед до подушки під лікоть і ручки
+      const low = vAdd(pivot, [s * Math.sin(a) * 30, 0, -Math.cos(a) * 30]);
+      beams(S, [pivot, low, vAdd(elbow(s), [s * 8, -4, 0])], 7, 6, P3.orange);
+      obox(S, vAdd(elbow(s), [s * 8, -2, 1]), [s * 3, 0, 0], [0, 11, 0], [0, 0, 6.5], P3.pad);
+      beam(S, vAdd(elbow(s), [s * 8, 8, 0]), vAdd(hand(s), [s * 6, 0, -3]), 5, 5, P3.orange);
+      grip(S, [vAdd(hand(s), [s * 1, 0, -8]), vAdd(hand(s), [s * 1, 0, 8])]);
     }
-    parts.push(guide(cx - 112, 172, cx + 112, 172));
-    parts.push(title('Лікті вгору в сторони', 14, 24));
-    const f = footer(FLOOR + 26, {
-      legends: [seat], hints: SEAT_HINTS, approx: isApprox(seat),
-      note: 'Сидіння — щоб плечі були на рівні осей важелів',
+    human(S, {
+      pelvis: [0, -8, SEAT_TOP + 9],
+      hand, elbow,
+      ...seatedLegs(42, 18),
     });
-    parts.push(f.svg);
-    return svgRoot(W, f.y + 4, 'Схема тренажера «Відведення рук сидячи»: висота сидіння', parts.join(''));
+    return renderScene(S, 'Тренажер «Відведення рук сидячи»: лікті на подушках важелів ідуть у сторони вгору');
   },
-};
+});
 
 // ======================================================================
-// №14 Жим у тренажері сидячи (плечі, диски) — фото 14: сидиш обличчям до нас, помаранчеві
-// важелі з дисками біля плечей, жим угору. Регулювання: позиція ручок (2) і висота сидіння.
+// №14 Жим у тренажері сидячи (плечі, диски) — фото gym/my-photos/zhym-sydyachy-*.png і сайту 14:
+// сидіння між двома похилими стійками, на них осі помаранчевих важелів з ручками біля плечей і
+// млинцями; жим угору. Регулювання: позиція ручки (2 варіанти) і висота сидіння.
 // ======================================================================
-const SP_CX = 130;
-const SP_Y = 166;
-// Дві ручки на кожному важелі (s = 1 праворуч, −1 ліворуч): 1 — горизонтальна зовні, 2 — вертикальна всередині.
-const spGrip = {
-  'pos-1': (s) => ({ d: [[SP_CX + s * 60, SP_Y], [SP_CX + s * 90, SP_Y]], hand: [SP_CX + s * 75, SP_Y], mark: [SP_CX + s * 76, SP_Y + 24] }),
-  'pos-2': (s) => ({ d: [[SP_CX + s * 46, SP_Y - 16], [SP_CX + s * 46, SP_Y + 14]], hand: [SP_CX + s * 46, SP_Y], mark: [SP_CX + s * 30, SP_Y - 30] }),
+const SP = {
+  // ручки на правому важелі (s = 1); 1 — горизонтальна всередину, 2 — вертикальна попереду
+  'pos-1': (s) => [[s * 46, 6, 119], [s * 28, 6, 119]],
+  'pos-2': (s) => [[s * 38, 17, 109], [s * 38, 17, 130]],
 };
-
-const plateShoulderPress = {
+function shoulderGripArt(id, on) {
+  const color = on ? ACC : '#9aa5a1';
+  const lever = el('path', { d: 'M8 30 L104 22', stroke: P3.orange, 'stroke-width': 14, 'stroke-linecap': 'round' })
+    + el('circle', { cx: 104, cy: 22, r: 15, fill: P3.plateGreen, stroke: '#1f6e2f', 'stroke-width': 2 })
+    + el('circle', { cx: 104, cy: 22, r: 4, fill: P3.metal });
+  const h1 = el('path', { d: 'M70 30 L22 60', stroke: id === 'pos-1' ? color : '#c8d0cc', 'stroke-width': id === 'pos-1' ? 10 : 7, 'stroke-linecap': 'round' });
+  const h2 = el('path', { d: 'M84 36 L84 82', stroke: id === 'pos-2' ? color : '#c8d0cc', 'stroke-width': id === 'pos-2' ? 10 : 7, 'stroke-linecap': 'round' })
+    + el('path', { d: 'M84 30 L84 38', stroke: P3.orange, 'stroke-width': 8 });
+  return SP[id] ? lever + h1 + h2 : '';
+}
+const plateShoulderPress = artModule({
   id: 'plate-shoulder-press',
   ADJUSTMENTS: ['grip-pos', 'seat'],
   HINTS: SEAT_HINTS,
-  draw(values = {}, adjustments = []) {
-    const seat = pickAdj(adjustments, 'seat');
-    const grip = pickAdj(adjustments, 'grip-pos');
-    const sel = optValue(grip, values);
-    const cx = SP_CX;
-    const sc = seatControl(seat, values, { ...SIDE_SEAT, x: cx - 46, w: 92, post: cx, badge: [250, 116] });
-    const hipY = 240 + sc.dy;
-    const opts = grip ? (grip.options || []).filter((o) => !o.deleted) : [];
-    const handOpt = sel ? sel.id : 'pos-1';
-    const hands = [1, -1].map((s) => (spGrip[handOpt] || spGrip['pos-1'])(s).hand);
-    const parts = [
-      floorLine(FLOOR, 250), base(20, 228),
-      // рама: дві похилі стійки, спинка
-      el('polygon', { points: `${cx - 92},${FLOOR - 12} ${cx - 78},${FLOOR - 12} ${cx - 34},70 ${cx - 46},70`, fill: C.frame, stroke: C.frameEdge, 'stroke-width': 1.5 }),
-      el('polygon', { points: `${cx + 92},${FLOOR - 12} ${cx + 78},${FLOOR - 12} ${cx + 34},70 ${cx + 46},70`, fill: C.frame, stroke: C.frameEdge, 'stroke-width': 1.5 }),
-      pad(cx - 24, 104, 48, 124),
-      sc.svg,
-    ];
-    // важелі з дисками
-    for (const s of [1, -1]) {
-      parts.push(orangePath(`M${cx + s * 40} 128 Q${cx + s * 50} ${SP_Y - 12} ${cx + s * 92} ${SP_Y - 12} L${cx + s * 104} ${SP_Y - 14}`, 13));
-      parts.push(plate([cx + s * 100, SP_Y - 42], 20));
-      parts.push(metalDot([cx + s * 40, 128], 6));
-    }
-    parts.push(seatedFront({ cx, hipY, hands, armBend: 'down', elbowOut: 6 }));
-    // ручки: обидві позиції на кожному важелі
-    const gripArt = [];
-    for (const s of [1, -1]) {
-      for (const id of ['pos-1', 'pos-2']) {
-        const g = spGrip[id](s);
-        gripArt.push(bar(g.d[0], g.d[1], 9, C.rubber));
-      }
-    }
-    parts.push(gripArt.join(''));
-    if (grip) {
-      opts.forEach((opt, i) => {
-        const geo = spGrip[opt.id];
-        if (!geo) return;
-        const on = sel && sel.id === opt.id;
-        let art = '';
-        for (const s of [1, -1]) {
-          const g = geo(s);
-          if (on) art += line(g.d[0], g.d[1], 20, C.accent, { opacity: 0.3 });
-          art += bar(g.d[0], g.d[1], 9, on ? C.accent : C.rubber) + optMarker(g.mark, i + 1, on);
-        }
-        parts.push(el('g', {
-          'data-adj': grip.id, 'data-opt': opt.id, class: `sc-zone sc-grip${on ? ' is-selected' : ''}`,
-          role: 'button', tabindex: 0, 'aria-label': `${grip.label}: ${opt.label}`,
-        }, el('title', {}, esc(opt.label)) + art));
-      });
-      parts.push(zone(grip.id, `${grip.label}: змінити`, optBadge(grip, sel, 250, 12) + guide(254, 54, cx + 100, SP_Y + 4)));
-    }
-    parts.push(arrow([[cx, 96], [cx, 52]]));
-    parts.push(text(cx + 10, 70, 'угору', { 'font-size': 12, fill: MOVE, 'font-weight': 700 }));
-    parts.push(title('Жим угору'));
-    let y = FLOOR + 14;
-    if (grip) {
-      parts.push(text(14, y + 6, `${grip.label}:`, { 'font-size': 13, 'font-weight': 700, fill: C.ink }));
-      parts.push(optionChips(grip, sel, { y: y + 14 }));
-      y += 64;
-    }
-    const f = footer(y, { legends: [seat], hints: SEAT_HINTS, approx: isApprox(seat, grip) });
-    parts.push(f.svg);
-    return svgRoot(W, f.y + 4, 'Схема тренажера «Жим у тренажері сидячи» (плечі): позиція ручок і висота сидіння', parts.join(''));
+  PICKERS: {
+    'grip-pos': (value, adj) => optionCards(value, adj, shoulderGripArt, `${adj.label}: де брати ручку`),
+    seat: heightPicker('seat', SEAT_HINTS),
   },
-  optionIcon(adjustment, optionId) {
-    if (adjustment.id !== 'grip-pos' || !spGrip[optionId]) return '';
-    const inner = ['pos-1', 'pos-2'].map((id) => {
-      const g = spGrip[id](1);
-      return bar(g.d[0], g.d[1], 9, id === optionId ? C.accent : '#b8c2be');
-    }).join('') + orangePath(`M${SP_CX + 40} 128 Q${SP_CX + 50} ${SP_Y - 12} ${SP_CX + 92} ${SP_Y - 12}`, 10);
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${SP_CX + 30} 120 72 64" width="96" height="84" class="grip-icon" aria-hidden="true">${inner}</svg>`;
-  },
-};
-
-// ======================================================================
-// «Прес» (№15 Ротація + №16 Скручування) — фото 15, 16. Регулювань немає.
-// ======================================================================
-const abStation = {
-  id: 'ab-station',
-  ADJUSTMENTS: [],
-  HINTS: {},
-  draw() {
-    const parts = [];
-    // --- Ротація: вигляд спереду, сидиш на поворотному диску, тримаєш дугу перед грудьми ---
-    const cx = 150;
-    const fl = 196;
-    parts.push(title('Ротація', 14, 24));
-    parts.push(floorLine(fl));
-    parts.push(stack(262, 30, 74, fl - 30));
-    parts.push(el('rect', { x: 60, y: 118, width: 210, height: 14, rx: 7, fill: C.frame }));
-    parts.push(el('rect', { x: 64, y: 118, width: 14, height: fl - 118, rx: 5, fill: C.frame }));
-    parts.push(el('ellipse', { cx, cy: fl - 10, rx: 52, ry: 9, fill: C.metal, stroke: C.metalEdge, 'stroke-width': 2 }));
-    parts.push(pad(cx - 34, 130, 68, 14));
-    parts.push(seatedFront({ cx, hipY: 134, hands: [[cx + 30, 88], [cx - 30, 88]], floor: fl - 8, armBend: 'down', elbowOut: 8 }));
-    parts.push(orangePath(`M${cx - 44} 70 L${cx - 44} 92 Q${cx} 116 ${cx + 44} 92 L${cx + 44} 70`, 10));
-    parts.push(bar([cx - 44, 62], [cx - 44, 84], 9, C.rubber) + bar([cx + 44, 62], [cx + 44, 84], 9, C.rubber));
-    parts.push(arrow([[cx - 70, 150], [cx, 176], [cx + 74, 150]]));
-    parts.push(arrow([[cx + 70, 112], [cx, 92], [cx - 74, 112]], MOVE, 3));
-    parts.push(caption('Поворот корпусу вліво-вправо', fl + 22));
-    // --- Скручування: вигляд збоку, ноги під валиками, ручки біля голови ---
-    const y0 = fl + 36;
-    const f2 = y0 + 176;
-    parts.push(divider(y0));
-    parts.push(title('Скручування', 14, y0 + 24));
-    parts.push(floorLine(f2));
-    parts.push(stack(270, y0 + 20, 66, f2 - y0 - 20));
-    parts.push(base(40, 270, f2));
-    parts.push(bar([196, f2 - 10], [196, f2 - 56], 10, C.frame));
-    parts.push(pad(150, f2 - 66, 84, 15));
-    parts.push(pad(230, f2 - 140, 18, 80));
-    // валики для ніг
-    parts.push(bar([116, f2 - 10], [116, f2 - 40], 8, C.frame));
-    parts.push(dot([116, f2 - 46], 11, C.rubber) + dot([116, f2 - 20], 11, C.rubber));
-    const hip = [212, f2 - 62];
-    const neck = [196, f2 - 118];
-    parts.push(person({
-      head: [184, f2 - 134], neck, hip,
-      legs: [{ mid: [160, f2 - 64], end: [128, f2 - 30], toe: [114, f2 - 34] }],
-      arms: [{ mid: [172, f2 - 120], end: [182, f2 - 146] }],
-    }));
-    // ручки зверху, вісь за спиною
-    parts.push(orangePath(`M240 ${f2 - 150} Q220 ${f2 - 168} 190 ${f2 - 150}`, 9));
-    parts.push(metalDot([240, f2 - 150], 6));
-    parts.push(arrow([[168, f2 - 166], [130, f2 - 150], [132, f2 - 108]]));
-    parts.push(caption('Скручування корпусу вперед-униз', f2 + 22));
-    return svgRoot(W, f2 + 32, 'Схема тренажера «Прес»: Ротація і Скручування', parts.join(''));
-  },
-};
-
-// ======================================================================
-// Гравітрон (№17 віджимання, №20 підтягування) — фото 17, 20: стоїш колінами на подушці-платформі,
-// що допомагає підніматися. Регулювань немає.
-// ======================================================================
-function gravitron(kind) {
-  const dip = kind === 'dip';
-  const parts = [floorLine(FLOOR), base(30, 340)];
-  parts.push(stack(270, 70, 70, FLOOR - 82));
-  // помаранчева рама: висока стійка, верхні ручки, бруси
-  parts.push(orangePath(`M246 ${FLOOR - 12} L246 46 Q246 30 230 30 L120 30`, 14));
-  parts.push(orange([246, 176], [130, 176], 11));
-  parts.push(bar([120, 30], [116, 52], 9, dip ? '#9aa6a2' : C.rubber));
-  parts.push(bar([130, 176], [120, 176], 10, dip ? C.rubber : '#9aa6a2'));
-  // платформа під коліна на важелі
-  parts.push(bar([246, 246], [170, 240], 9, C.frame));
-  parts.push(pad(118, 232, 96, 16));
-  parts.push(metalDot([246, 246], 7));
-  // сходинка
-  parts.push(el('rect', { x: 44, y: FLOOR - 40, width: 60, height: 10, rx: 4, fill: C.metal, stroke: C.metalEdge }));
-  parts.push(bar([74, FLOOR - 30], [74, FLOOR - 10], 8, C.frame));
-  const knee = [168, 230];
-  const hip = [174, 178];
-  const neck = [172, 112];
-  if (dip) {
-    parts.push(person({
-      head: [176, 92], neck, hip,
-      legs: [{ mid: knee, end: [110, 226], toe: [100, 236] }],
-      arms: [{ mid: [190, 142], end: [124, 176] }],
-    }));
-    parts.push(arrow([[76, 120], [76, 170]]));
-    parts.push(arrow([[96, 170], [96, 120]], C.accent));
-  } else {
-    parts.push(person({
-      head: [168, 92], neck: [170, 112], hip,
-      legs: [{ mid: knee, end: [110, 226], toe: [100, 236] }],
-      arms: [{ mid: [140, 80], end: [118, 52] }],
-    }));
-    parts.push(arrow([[76, 170], [76, 112]]));
-  }
-  parts.push(title(dip ? 'Віджимання на брусах' : 'Підтягування'));
-  parts.push(caption('Коліна на платформі — вона допомагає підніматися', FLOOR + 24));
-  parts.push(caption('Більша вага на блоці — легше', FLOOR + 42));
-  return svgRoot(W, FLOOR + 54, dip ? 'Схема тренажера «Віджимання в гравітроні»' : 'Схема тренажера «Підтягування в гравітроні»', parts.join(''));
-}
-const assistedDip = { id: 'assisted-dip', ADJUSTMENTS: [], HINTS: {}, draw() { return gravitron('dip'); } };
-const assistedPullup = { id: 'assisted-pullup', ADJUSTMENTS: [], HINTS: {}, draw() { return gravitron('pullup'); } };
-
-// ======================================================================
-// №18 Жим на трицепс — фото 18: сидиш обличчям до нас, ручки біля стегон, тиснеш униз.
-// ======================================================================
-const tricepsPress = {
-  id: 'triceps-press',
-  ADJUSTMENTS: [],
-  HINTS: {},
-  draw() {
-    const cx = 196;
-    const hipY = 236;
-    const parts = [floorLine(), base(16, 300), stack(16, 40, 80, FLOOR - 52)];
-    parts.push(pad(cx - 24, 92, 48, 140));
-    parts.push(pad(cx - 46, 232, 92, 15));
-    parts.push(el('rect', { x: cx - 5, y: 246, width: 10, height: 42, fill: C.metal, stroke: C.metalEdge }));
-    for (const s of [1, -1]) {
-      parts.push(orange([cx + s * 72, 262], [cx + s * 52, 218], 11));
-      parts.push(metalDot([cx + s * 72, 262], 6));
+  build(exerciseId, mini) {
+    const S = scene3d({ yaw: 26, pitch: 24, mini });
+    floorShadow(S, 0, -2, 86, 66);
+    baseFrame(S, { x: 60, y0: -42, y1: 44, cross: [-38, 38], mid: [-38, 38] });
+    for (const s of [-1, 1]) beam(S, [s * 60, 36, 3], [s * 50, -30, 112], 8, 8, FR);
+    beam(S, [0, -40, 4], [0, -36, 104], 7, 7, FR);
+    beam(S, [0, -24, 56], [0, -28, 134], 34, 8, P3.pad);
+    S.mark('seat', seatOnPost(S, { top: SEAT_TOP }));
+    for (const s of [-1, 1]) {
+      box(S, [s * 50 - 6, -38, 108], [s * 50 + 6, -26, 120], FR);
+      beams(S, [[s * 50, -32, 114], [s * 47, 4, 120], [s * 46, 19, 121]], 7, 7, P3.orange);
+      grip(S, SP['pos-1'](s));
+      beam(S, [s * 46, 17, 121], [s * 39, 17, 121], 4, 4, P3.orange);
+      grip(S, SP['pos-2'](s));
+      plateOn(S, [s * 60, 4, 124], [s, 0, 0], 20, P3.plateGreen);
     }
-    parts.push(seatedFront({ cx, hipY, hands: [[cx + 50, 214], [cx - 50, 214]], armBend: 'right', elbowOut: 10 }));
-    for (const s of [1, -1]) {
-      parts.push(bar([cx + s * 44, 214], [cx + s * 60, 214], 10, C.rubber));
-      parts.push(arrow([[cx + s * 92, 176], [cx + s * 92, 226]]));
-    }
-    parts.push(title('Ручки біля стегон — тиснути вниз', 110, 24));
-    return svgRoot(W, FLOOR + 12, 'Схема тренажера «Жим на трицепс»', parts.join(''));
-  },
-};
-
-// ======================================================================
-// №19 Згинання рук у блоці — фото 19: сидиш, плечі лежать на похилій подушці, згинаєш руки.
-// ======================================================================
-const cableCurl = {
-  id: 'cable-curl',
-  ADJUSTMENTS: [],
-  HINTS: {},
-  draw() {
-    const parts = [floorLine(), base(40, 340), stack(262, 40, 78, FLOOR - 52)];
-    parts.push(bar([196, FLOOR - 10], [196, 246], 10, C.frame));
-    parts.push(pad(156, 232, 84, 15));
-    // похила подушка під плечі
-    parts.push(bar([120, FLOOR - 10], [130, 210], 9, C.frame));
-    parts.push(bar([108, 206], [160, 178], 18, C.pad, C.padEdge));
-    const hip = [214, 234];
-    const neck = [208, 172];
-    const elbow = [118, 196];
-    const hand = [104, 150];
-    parts.push(person({
-      head: [202, 152], neck, hip,
-      legs: [{ mid: [160, 240], end: [148, FLOOR - 8], toe: [134, FLOOR - 8] }],
-      arms: [{ from: add(neck, 0, 6), mid: elbow, end: hand }],
-    }));
-    // важіль з ручкою, вісь біля ліктя, трос до блоку
-    parts.push(line([118, 200], [262, 70], 2.5, '#7d8a86'));
-    parts.push(orange([116, 200], [100, 146], 9));
-    parts.push(bar([92, 148], [110, 142], 9, C.rubber));
-    parts.push(metalDot([116, 200], 7));
-    parts.push(arrow([[80, 196], [62, 160], [84, 124]]));
-    parts.push(title('Згинання рук'));
-    return svgRoot(W, FLOOR + 12, 'Схема тренажера «Згинання рук у блоці»', parts.join(''));
-  },
-};
-
-// ======================================================================
-// №21 Вертикальна тяга (диски) — фото 21 і gym/my-photos/tyaga-vazhilna.png: сидиш, ручки над
-// головою, тяга зверху вниз; стегна під притискним валіком. Регулювання: позиція ручки (2), валік (5).
-// ======================================================================
-const LP_HINTS = { roller: { first: 'найнижче', last: 'найвище' } };
-const LP_CX = 180;
-// Ручки, вигляд спереду (s = 1 праворуч, −1 ліворуч): 1 — широкий хват на кінцях, 2 — вузький ближче до центру.
-const lpGrip = {
-  'pos-1': (s) => ({ d: `M${LP_CX + s * 120} 384 Q${LP_CX + s * 144} 384 ${LP_CX + s * 144} 404 L${LP_CX + s * 144} 428`, mark: [LP_CX + s * 144, 448] }),
-  'pos-2': (s) => ({ d: `M${LP_CX + s * 60} 380 L${LP_CX + s * 60} 424`, mark: [LP_CX + s * 60, 444] }),
-};
-
-function lpHandles(sel, adj) {
-  const out = [];
-  out.push(el('rect', { x: LP_CX - 10, y: 360, width: 20, height: 50, rx: 4, fill: C.frame, opacity: 0.35 }));
-  for (const s of [1, -1]) out.push(orangePath(`M${LP_CX + s * 8} 366 L${LP_CX + s * 120} 384`, 12));
-  for (const id of ['pos-1', 'pos-2']) for (const s of [1, -1]) out.push(path(lpGrip[id](s).d, 13, C.rubber));
-  if (adj) {
-    (adj.options || []).filter((o) => !o.deleted).forEach((opt, i) => {
-      const geo = lpGrip[opt.id];
-      if (!geo) return;
-      const on = sel && sel.id === opt.id;
-      let art = '';
-      for (const s of [1, -1]) {
-        const g = geo(s);
-        if (on) art += path(g.d, 26, C.accent, { opacity: 0.28 });
-        art += path(g.d, on ? 11 : 9, on ? C.accent : '#4a5250') + optMarker(g.mark, i + 1, on);
-      }
-      out.push(el('g', {
-        'data-adj': adj.id, 'data-opt': opt.id, class: `sc-zone sc-grip${on ? ' is-selected' : ''}`,
-        role: 'button', tabindex: 0, 'aria-label': `${adj.label}: ${opt.label}`,
-      }, el('title', {}, esc(opt.label)) + art));
+    S.mark('grip-pos', [44, 8, 122]);
+    human(S, {
+      pelvis: [0, -6, SEAT_TOP + 9],
+      hand: (s) => [s * 34, 6, 119],
+      elbowPole: (s) => [s, 0.25, -1],
+      ...seatedLegs(42, 20),
     });
-  }
-  return out.join('');
-}
+    return renderScene(S, 'Тренажер «Жим у тренажері сидячи» (плечі): ручки біля плечей — жим угору');
+  },
+});
 
-/** Притискний валік над стегнами з лінійкою позицій. → {svg} */
-function rollerControl(adj, values, o) {
-  const val = posValue(adj, values);
-  const n = adj ? adj.count : 5;
-  const mid = (n + 1) / 2;
-  const cy = o.y - (val ? (val - mid) * 5 : 0);
-  const art = bar([o.x + 8, cy], [o.x + 8, o.postBottom], 8, C.frame) + dot([o.x, cy], 13, C.pad, C.padEdge, 1.5)
-    + dot([o.x + 8, cy], 4, C.metalEdge);
-  if (!adj) return art;
-  const sp = Math.max(11, Math.min(18, 76 / Math.max(n - 1, 1)));
-  const yOf = (k) => o.rulerMid + (mid - k) * sp;
-  return zone(adj.id, `${adj.label}: змінити`,
-    ring(o.x - 22, cy - 22, 44, 44, 22) + art
-    + ruler(adj, { x: o.rulerX, yOf, selected: val, hints: o.hints })
-    + (val ? guide(o.x + 22, cy, o.rulerX - 9, yOf(val)) : '')
-    + fitBadge(adj, { x: o.badge[0], y: o.badge[1], w: 104, h: 62, value: val ? String(val) : null, raw: val }));
-}
+// ======================================================================
+// «Прес» (№15 Ротація, №16 Скручування) — фото сайту 15, 16; регулювань немає.
+// Ротація: сидиш на поворотній платформі, тримаєш помаранчеву дугу перед грудьми, поворот корпусу.
+// Скручування: спина до спинки, стопи за валиками, руки на помаранчевих ручках біля голови.
+// ======================================================================
+const abStation = artModule({
+  id: 'ab-station',
+  build(exerciseId, mini) {
+    const crunch = exerciseId === 'eq-15-b';
+    const S = scene3d({ yaw: 28, pitch: 24, mini });
+    floorShadow(S, -8, -6, 96, 70);
+    tower(S, [-86, -48, 0], [-58, 30, 152], P3.panelArp);
+    beam(S, [-56, -40, 3], [56, -40, 3], 7, 6, FR);
+    beam(S, [0, -40, 3], [0, 58, 3], 7, 6, FR);
+    beam(S, [-60, 58, 3], [60, 58, 3], 7, 6, FR);
+    if (!crunch) {
+      // рама попереду (поперечка на рівні колін) і поворотна платформа
+      beam(S, [-60, 58, 0], [-60, 58, 58], 9, 9, FR);
+      beam(S, [-64, 58, 56], [60, 58, 56], 10, 9, FR);
+      disc(S, [0, 0, 22], [0, 0, 1], 28, P3.metal, { thick: 6 });
+      box(S, [-4, -4, 4], [4, 4, 16], FR);
+      beam(S, [0, 0, 22], [0, 0, SEAT_TOP - 6], 8, 8, FR);
+      box(S, [-18, -16, SEAT_TOP - 7], [18, 18, SEAT_TOP], P3.pad);
+      // помаранчева дуга з вертикальними ручками, на кронштейнах від платформи
+      for (const s of [-1, 1]) {
+        beams(S, [[s * 24, -6, 24], [s * 30, -6, 60], [s * 26, 10, 96]], 6, 6, P3.orange);
+        grip(S, [[s * 25, 10, 98], [s * 25, 10, 118]]);
+      }
+      tube(S, [[-25, 10, 98], [-20, 22, 92], [0, 28, 90], [20, 22, 92], [25, 10, 98]], 6, P3.orange);
+      human(S, {
+        pelvis: [0, -4, SEAT_TOP + 9],
+        hand: (s) => [s * 25, 10, 108],
+        elbowPole: (s) => [s, -0.2, -1],
+        ankle: (s) => [s * 17, 34, 24], kneePole: () => [0, 0.4, 1],
+      });
+      return renderScene(S, 'Тренажер «Прес» — Ротація: поворот корпусу вліво-вправо на поворотному сидінні');
+    }
+    // скручування: спинка, валики для ніг, ручки біля голови на важелях з віссю позаду
+    beam(S, [0, -40, 3], [0, -36, 112], 7, 7, FR);
+    beam(S, [0, -26, 58], [0, -28, 112], 34, 8, P3.pad);
+    seatOnPost(S, { top: SEAT_TOP, pin: false });
+    beam(S, [0, 58, 3], [0, 50, 34], 7, 7, FR);
+    for (const z of [14, 34]) {
+      tube(S, [[-3, 46, z], [3, 46, z]], 4, P3.metal);
+      for (const s of [-1, 1]) tube(S, [[s * 4, 46, z], [s * 22, 46, z]], 11, P3.pad, { shine: false });
+    }
+    beam(S, [-34, -38, 112], [34, -38, 112], 8, 8, FR);
+    for (const s of [-1, 1]) {
+      beam(S, [s * 34, -40, 3], [s * 34, -38, 112], 7, 7, FR);
+      box(S, [s * 30 - 4, -34, 106], [s * 30 + 4, -24, 118], FR);
+      beams(S, [[s * 30, -28, 112], [s * 29, -16, 126], [s * 25, -2, 132]], 6, 6, P3.orange);
+      grip(S, [[s * 25, -2, 132], [s * 13, 5, 136]]);
+    }
+    human(S, {
+      pelvis: [0, -6, SEAT_TOP + 9], lean: 0.12,
+      hand: (s) => [s * 18, 2, 134],
+      elbowPole: (s) => [s, 0.7, -0.2],
+      ankle: (s) => [s * 13, 37, 9], kneePole: () => [0, 0.4, 1],
+    });
+    return renderScene(S, 'Тренажер «Прес» — Скручування: ручки біля голови, корпус уперед-униз');
+  },
+});
 
-export const leverPulldown = {
+// ======================================================================
+// Гравітрон (№17 віджимання, №20 підтягування) — фото сайту 17, 20: помаранчева рама, коліна на
+// платформі-противазі; бруси для віджимань, ручки вгорі для підтягувань. Регулювань немає.
+// ======================================================================
+function gravitron(id, dip) {
+  return artModule({
+    id,
+    build(exerciseId, mini) {
+      const S = scene3d({ yaw: 28, pitch: 22, mini });
+      floorShadow(S, 0, -36, 74, 66);
+      tower(S, [-26, -96, 0], [26, -66, 206], P3.panelArp);
+      beam(S, [-42, -70, 3], [42, -70, 3], 8, 6, FR);
+      for (const s of [-1, 1]) {
+        beam(S, [s * 38, -70, 3], [s * 38, 30, 3], 8, 6, FR);
+        beam(S, [s * 36, -34, 0], [s * 36, -34, 262], 9, 9, P3.orange);
+        // бруси
+        beam(S, [s * 36, -34, 144], [s * 29, 6, 144], 6, 6, P3.orange);
+        grip(S, [[s * 29, 2, 144], [s * 28, 26, 144]], { w: 5 });
+        // ручки для підтягувань угорі
+        beam(S, [s * 36, -34, 254], [s * 34, 4, 254], 6, 6, P3.orange);
+        grip(S, [[s * 34, 4, 254], [s * 27, 12, 242]], { w: 5 });
+      }
+      beam(S, [-40, -34, 262], [40, -34, 262], 9, 9, P3.orange);
+      // платформа під коліна на важелі
+      beam(S, [0, -66, 60], [0, -4, 96], 7, 7, P3.orange);
+      box(S, [-17, -22, 96], [17, 14, 103], P3.pad);
+      // сходинка
+      box(S, [-22, 18, 30], [22, 34, 34], P3.metal);
+      beam(S, [0, 26, 3], [0, 26, 30], 6, 6, FR);
+      human(S, {
+        pelvis: [0, 9, 150],
+        hand: dip ? (s) => [s * 28, 12, 145] : (s) => [s * 29, 8, 248],
+        elbowPole: dip ? (s) => [s * 0.3, -1, 0] : (s) => [s, 0, -0.2],
+        ankle: (s) => [s * 10, -22, 109], knee: (s) => [s * 10, 10, 108],
+        toe: () => [0, -1, -0.2],
+      });
+      return renderScene(S, dip
+        ? 'Тренажер «Віджимання в гравітроні»: коліна на платформі, руки на брусах'
+        : 'Тренажер «Підтягування в гравітроні»: коліна на платформі, руки на ручках угорі', { maxH: 380 });
+    },
+  });
+}
+const assistedDip = gravitron('assisted-dip', true);
+const assistedPullup = gravitron('assisted-pullup', false);
+
+// ======================================================================
+// №18 Жим на трицепс (ARP) — фото сайту 18: сидиш, спиною до спинки, обидві руки на ручках
+// помаранчевих важелів біля стегон, лікті позаду; тиснеш униз. Симетрично. Регулювань немає.
+// ======================================================================
+const tricepsPress = artModule({
+  id: 'triceps-press',
+  build(exerciseId, mini) {
+    const S = scene3d({ yaw: 26, pitch: 24, mini });
+    floorShadow(S, -16, -4, 96, 66);
+    tower(S, [-100, -44, 0], [-70, 26, 156], P3.panelArp);
+    beam(S, [-70, -32, 3], [44, -32, 3], 7, 6, FR);
+    beam(S, [0, -32, 3], [0, 44, 3], 7, 6, FR);
+    beam(S, [-44, 40, 3], [44, 40, 3], 7, 6, FR);
+    beam(S, [0, -36, 3], [0, -32, 132], 7, 7, FR);
+    beam(S, [0, -24, 58], [0, -26, 134], 34, 8, P3.pad);
+    seatOnPost(S, { top: SEAT_TOP, pin: false });
+    for (const s of [-1, 1]) {
+      beam(S, [s * 40, 40, 3], [s * 40, 38, 34], 7, 7, FR);
+      box(S, [s * 37 - 3, 32, 28], [s * 37 + 4, 42, 40], FR);
+      beams(S, [[s * 36, 37, 34], [s * 34, 16, 60], [s * 33, 8, 66]], 6, 6, P3.orange);
+      grip(S, [[s * 31, -6, 68], [s * 31, 12, 68]]);
+    }
+    human(S, {
+      pelvis: [0, -6, SEAT_TOP + 9],
+      hand: (s) => [s * 31, 3, 69],
+      elbow: (s) => [s * 25, -20, 82],
+      ...seatedLegs(44, 18),
+    });
+    return renderScene(S, 'Тренажер «Жим на трицепс»: обидві руки на ручках біля стегон — тиснути вниз');
+  },
+});
+
+// ======================================================================
+// №19 Згинання рук у блоці (ARP) — фото сайту 19: сидиш, плечі лежать на похилій подушці попереду,
+// обидві руки на ручках помаранчевих важелів з віссю біля ліктів; згинаєш руки. Регулювань немає.
+// ======================================================================
+const cableCurl = artModule({
+  id: 'cable-curl',
+  build(exerciseId, mini) {
+    const S = scene3d({ yaw: 28, pitch: 24, mini });
+    floorShadow(S, -16, 4, 96, 66);
+    tower(S, [-100, -36, 0], [-70, 30, 156], P3.panelArp);
+    beam(S, [-70, -26, 3], [0, -26, 3], 7, 6, FR);
+    beam(S, [0, -26, 3], [0, 56, 3], 7, 6, FR);
+    beam(S, [-36, 52, 3], [36, 52, 3], 7, 6, FR);
+    seatOnPost(S, { y: -6, top: SEAT_TOP + 2, pin: false });
+    // похила подушка під плечі
+    beam(S, [0, 52, 3], [0, 40, 72], 8, 8, FR);
+    beam(S, [0, 20, 89], [0, 46, 70], 50, 7, P3.pad, { bias: -8 });
+    for (const s of [-1, 1]) {
+      box(S, [s * 32 - 4, 26, 82], [s * 32 + 4, 36, 94], FR);
+      beam(S, [s * 32, 31, 88], [s * 32, 26, 114], 6, 6, P3.orange);
+      grip(S, [[s * 32, 26, 114], [s * 13, 26, 114]]);
+    }
+    human(S, {
+      pelvis: [0, -8, SEAT_TOP + 11], lean: 0.32,
+      hand: (s) => [s * 19, 26, 114],
+      elbow: (s) => [s * 21, 31, 88],
+      ...seatedLegs(42, 18),
+    });
+    return renderScene(S, 'Тренажер «Згинання рук у блоці»: плечі на похилій подушці, згинати обидві руки');
+  },
+});
+
+// ======================================================================
+// №21 Вертикальна тяга (диски, SHUA) — фото сайту 21: похила колона попереду, на осі вгорі два
+// помаранчеві важелі: спереду млинці, ззаду над головою ручки; стегна під притискними валиками.
+// Регулювання: позиція ручки («Ширше» — на кінці важеля, «Вужче» — ближче до середини) і валік.
+// ======================================================================
+const LP = {
+  'pos-1': (s) => [[s * 44, -4, 168], [s * 46, -4, 148]],
+  'pos-2': (s) => [[s * 30, 16, 175], [s * 29, 16, 156]],
+};
+function pulldownGripArt(id, on) {
+  if (!LP[id]) return '';
+  const color = on ? ACC : '#9aa5a1';
+  const bar = el('path', { d: 'M60 20 L16 34 M60 20 L104 34', stroke: P3.orange, 'stroke-width': 10, 'stroke-linecap': 'round' })
+    + el('rect', { x: 54, y: 10, width: 12, height: 16, rx: 3, fill: FR });
+  const handle = (x1, y1, x2, y2, me) => el('path', {
+    d: `M${x1} ${y1} L${x2} ${y2}`, stroke: me ? color : '#c8d0cc', 'stroke-width': me ? 10 : 7, 'stroke-linecap': 'round',
+  });
+  return bar
+    + handle(16, 34, 12, 80, id === 'pos-1') + handle(104, 34, 108, 80, id === 'pos-1')
+    + handle(38, 27, 38, 70, id === 'pos-2') + handle(82, 27, 82, 70, id === 'pos-2');
+}
+export const leverPulldown = artModule({
   id: 'lever-pulldown',
   ADJUSTMENTS: ['grip-pos', 'roller'],
-  HINTS: LP_HINTS,
-  draw(values = {}, adjustments = []) {
-    const grip = pickAdj(adjustments, 'grip-pos');
-    const roller = pickAdj(adjustments, 'roller');
-    const sel = optValue(grip, values);
-    const parts = [floorLine(FLOOR, 250), base(18, 250)];
-    // похила колона спереду, вісь угорі, диск на передньому кінці важеля
-    parts.push(el('polygon', { points: `58,${FLOOR - 12} 78,${FLOOR - 12} 100,58 82,58`, fill: C.frame, stroke: C.frameEdge, 'stroke-width': 1.5 }));
-    // сидіння (без регулювання)
-    parts.push(bar([200, FLOOR - 10], [200, 250], 10, C.frame));
-    parts.push(pad(160, 238, 84, 15));
-    const hip = [214, 240];
-    const hands = [[188, 104], [194, 102]];
-    parts.push(seatedSide({ hip, hands, foot: [140, FLOOR - 8], lean: -2, armBend: 'right' }));
-    parts.push(rollerControl(roller, values, {
-      x: 168, y: 222, postBottom: 262, rulerX: 270, rulerMid: 220, badge: [250, 100], hints: LP_HINTS,
-    }));
-    // важіль: диск попереду осі, ручки над головою
-    parts.push(orangePath('M40 50 L92 58 L178 84 L188 96', 12));
-    parts.push(el('rect', { x: 30, y: 44, width: 22, height: 10, fill: C.metal, stroke: C.metalEdge }));
-    parts.push(plate([40, 50], 28));
-    parts.push(metalDot([92, 58], 8));
-    parts.push(bar([176, 98], [204, 98], 12, C.rubber));
-    if (grip) {
-      parts.push(zone(grip.id, `${grip.label}: змінити`,
-        ring(166, 84, 50, 28, 10) + optBadge(grip, sel, 250, 16) + guide(254, 60, 216, 92)));
-    }
-    parts.push(arrow([[146, 104], [146, 160]]));
-    parts.push(text(112, 136, 'вниз', { 'font-size': 12, fill: MOVE, 'font-weight': 700 }));
-    parts.push(title('Тяга зверху вниз', 110, 24));
-    let y = FLOOR + 14;
-    if (grip) {
-      parts.push(divider(y + 22));
-      parts.push(text(14, y + 46, `${grip.label} — де брати ручку`, { 'font-size': 15, 'font-weight': 700, fill: C.ink }));
-      parts.push(text(W - 14, y + 46, 'вигляд спереду', { 'text-anchor': 'end', 'font-size': 11.5, fill: C.muted }));
-      parts.push(lpHandles(sel, grip));
-      parts.push(optionChips(grip, sel, { y: 470 }));
-      y = 524;
-    }
-    const f = footer(y + 10, { legends: [roller], hints: LP_HINTS, approx: isApprox(grip, roller) });
-    parts.push(f.svg);
-    return svgRoot(W, f.y + 4, 'Схема вертикальної тяги (тяга зверху вниз): позиція ручки і притискний валік', parts.join(''));
+  HINTS: ROLLER_HINTS,
+  PICKERS: {
+    'grip-pos': (value, adj) => optionCards(value, adj, pulldownGripArt, `${adj.label}: де брати ручку`),
+    roller: heightPicker('roller', ROLLER_HINTS),
   },
-  optionIcon(adjustment, optionId) {
-    if (adjustment.id !== 'grip-pos' || !lpGrip[optionId]) return '';
-    const inner = orangePath(`M${LP_CX + 8} 366 L${LP_CX + 120} 384`, 10)
-      + ['pos-1', 'pos-2'].map((id) => path(lpGrip[id](1).d, 11, id === optionId ? C.accent : '#b8c2be')).join('');
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${LP_CX} 356 160 80" width="120" height="60" class="grip-icon" aria-hidden="true">${inner}</svg>`;
+  build(exerciseId, mini) {
+    const S = scene3d({ yaw: 52, pitch: 20, mini });
+    floorShadow(S, 0, 22, 70, 82);
+    beam(S, [0, -34, 3], [0, 92, 3], 8, 6, FR);
+    beam(S, [-38, 88, 3], [38, 88, 3], 8, 6, FR);
+    beam(S, [-32, -32, 3], [32, -32, 3], 8, 6, FR);
+    beam(S, [0, 84, 2], [0, 52, 186], 11, 11, FR);
+    box(S, [-18, 44, 184], [18, 54, 194], FR);
+    seatOnPost(S, { y: -2, top: SEAT_TOP, pin: false });
+    // притискний валік над стегнами
+    beam(S, [0, 34, 3], [0, 28, 70], 7, 7, FR);
+    tube(S, [[-24, 24, 76], [24, 24, 76]], 3.6, P3.metal);
+    for (const s of [-1, 1]) tube(S, [[s * 5, 24, 76], [s * 23, 24, 76]], 12, P3.pad, { shine: false });
+    S.mark('roller', [24, 24, 76]);
+    for (const s of [-1, 1]) {
+      beams(S, [[s * 22, 80, 180], [s * 14, 49, 190], [s * 44, -4, 168]], 7, 6, P3.orange);
+      plateOn(S, [s * 32, 80, 180], [s, 0, 0], 21);
+      grip(S, LP['pos-1'](s));
+      grip(S, LP['pos-2'](s));
+    }
+    S.mark('grip-pos', [44, -4, 168]);
+    human(S, {
+      pelvis: [0, -4, SEAT_TOP + 9],
+      hand: (s) => [s * 45, -4, 153],
+      elbowPole: (s) => [s, -0.3, -0.4],
+      ...seatedLegs(46, 16),
+    });
+    return renderScene(S, 'Вертикальна тяга (тяга зверху вниз): ручки над головою, стегна під валиком');
   },
-};
+});
 
 // ======================================================================
-// №22 Горизонтальна тяга (диски) — фото 22: сидиш грудьми до подушки, ручки попереду на рівні
-// грудей, тяга до себе. Хват — три кольорові зони на ручці (gym/my-photos/tyaga-vazhilna-khvaty.png):
-// зелена — верхня горизонтальна частина, червона — вигин угору, помаранчева — внутрішній нижній кінець.
+// №22 Горизонтальна тяга (диски, SHUA) — фото сайту 22, gym/my-photos/tyaga-vazhilna*.png:
+// сидиш грудьми до вертикальної подушки, ручки попереду на рівні грудей на помаранчевих важелях
+// з віссю внизу, млинці збоку; тяга до себе. Регулювання: висота сидіння і хват — три кольорові
+// зони на ручці: зелена — верхня горизонтальна частина, червона — вигин, помаранчева — внутрішній низ.
 // ======================================================================
-const LR_HINTS = SEAT_HINTS;
+// Ручка спереду (права половина, дзеркалиться відносно x = 180) — з малюнка tyaga-vazhilna-khvaty.png.
 const GRIP_PATHS = {
   red: 'M204 396 L204 440 Q204 458 222 458',
   orange: 'M222 458 L262 458',
@@ -726,181 +1066,149 @@ const GRIP_PATHS = {
 const GRIP_REST = 'M262 458 L300 458 Q326 458 326 432 L326 426 Q326 400 300 400';
 const GRIP_MARK = { red: [204, 426], orange: [242, 458], green: [264, 400] };
 const GRIP_COLORS = { green: '#2e9d4f', red: '#d63b3b', orange: '#f08a1c' };
-const GRIP_ALL = `${GRIP_PATHS.red} ${GRIP_PATHS.orange} ${GRIP_REST} ${GRIP_PATHS.green}`;
-const gripColor = (opt) => (opt && (opt.color || GRIP_COLORS[opt.id])) || C.accent;
-const mirror = (inner) => `${inner}${el('g', { transform: `translate(${W} 0) scale(-1 1)` }, inner)}`;
+const safeHex = (c) => (/^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : null);
+const gripColor = (opt) => (opt && (safeHex(opt.color) || GRIP_COLORS[opt.id])) || ACC;
+const mirror = (inner) => `${inner}${el('g', { transform: 'translate(360 0) scale(-1 1)' }, inner)}`;
 
-function rowHandleFront() {
-  return mirror(
-    el('path', { d: 'M204 389 L200 372', stroke: C.frame, 'stroke-width': 10, 'stroke-linecap': 'round' })
-    + path(GRIP_ALL, 14, C.rubber)
-    + metalDot([204, 389], 7.5)
-    + metalDot([225, 400], 5.5),
-  );
+function rowGripPicker(value, adj) {
+  const opts = (adj.options || []).filter((o) => !o.deleted);
+  const sel = opts.find((o) => o.id === value) || null;
+  const out = [];
+  // рама й важелі (сірим), ручка — чорна; зони — кольорові, кожна — кнопка
+  out.push(el('rect', { x: 170, y: 372, width: 20, height: 104, rx: 4, fill: FR, opacity: 0.3 }));
+  out.push(mirror(el('path', { d: 'M204 389 L200 372', stroke: FR, 'stroke-width': 10, 'stroke-linecap': 'round' })
+    + path(`${GRIP_PATHS.red} ${GRIP_PATHS.orange} ${GRIP_REST} ${GRIP_PATHS.green}`, 14, P3.rubber)
+    + el('circle', { cx: 204, cy: 389, r: 7.5, fill: P3.metal, stroke: C.metalEdge, 'stroke-width': 2 })));
+  for (const o of opts) {
+    const d = GRIP_PATHS[o.id];
+    if (!d) continue;
+    const on = !!sel && sel.id === o.id;
+    const color = gripColor(o);
+    const [mx, my] = GRIP_MARK[o.id];
+    out.push(pickG(o.id, on, `${adj.label}: ${o.label}`, mirror(
+      path(d, 30, color, { opacity: on ? 0.28 : 0.001 })
+      + path(d, on ? 13 : 9, color, { opacity: on || !sel ? 1 : 0.45 })
+      + (on ? el('circle', { cx: mx, cy: my, r: 9, fill: '#ffffff', stroke: color, 'stroke-width': 4 }) : ''))));
+  }
+  // назви зон (тренер може перейменувати) — рядком під ручкою
+  const gap = 8;
+  const w = (340 - gap * (opts.length - 1)) / Math.max(1, opts.length);
+  opts.forEach((o, i) => {
+    const on = !!sel && sel.id === o.id;
+    const color = gripColor(o);
+    const x = r1(10 + i * (w + gap));
+    out.push(pickG(o.id, on, `${adj.label}: ${o.label}`,
+      el('rect', { x, y: 486, width: r1(w), height: 36, rx: 18, fill: on ? color : '#ffffff', stroke: color, 'stroke-width': on ? 3 : 2 })
+      + el('circle', { cx: x + 18, cy: 504, r: 9, fill: on ? '#ffffff' : color })
+      + text(x + 33, 509.5, o.label, { 'font-size': fit(o.label, w - 40, 14), 'font-weight': on ? 800 : 600, fill: on ? '#ffffff' : C.ink })));
+  });
+  return pickerSvg(360, 172, `${adj.label}: де брати ручку`, el('g', { transform: 'translate(0 -356)' }, out.join('')));
 }
 
-function rowGripSeg(opt, sel) {
-  const d = GRIP_PATHS[opt.id];
-  if (!d) return '';
-  const color = gripColor(opt);
-  const on = sel && sel.id === opt.id;
-  const [mx, my] = GRIP_MARK[opt.id];
-  return mirror((on ? path(d, 26, color, { opacity: 0.28 }) : '')
-    + path(d, on ? 12 : 9, color, { opacity: on || !sel ? 1 : 0.45 })
-    + (on ? el('circle', { cx: mx, cy: my, r: 9, fill: '#ffffff', stroke: color, 'stroke-width': 4 }) : ''));
-}
-
-const leverRow = {
+const leverRow = artModule({
   id: 'lever-row',
   ADJUSTMENTS: ['seat', 'grip'],
-  HINTS: LR_HINTS,
-  draw(values = {}, adjustments = []) {
-    const seat = pickAdj(adjustments, 'seat');
-    const grip = pickAdj(adjustments, 'grip');
-    const sel = optValue(grip, values);
-    const sc = seatControl(seat, values, { ...SIDE_SEAT, x: 150, w: 80, post: 200, badge: [250, 110] });
-    const hip = [214, 236 + sc.dy];
-    const parts = [floorLine(FLOOR, 250), base(18, 250)];
-    // стійка грудної подушки й підніжка
-    parts.push(bar([140, FLOOR - 10], [146, 204], 10, C.frame));
-    parts.push(bar([146, 204], [180, 192], 8, C.frame));
-    parts.push(el('rect', { x: 128, y: FLOOR - 22, width: 44, height: 8, rx: 3, fill: C.metal, stroke: C.metalEdge }));
-    parts.push(sc.svg);
-    parts.push(seatedSide({ hip, hands: [[146, 170], [150, 168]], foot: [124, FLOOR - 24], lean: -6, armBend: 'down' }));
-    // грудна подушка — перед грудьми
-    parts.push(pad(178, 148, 16, 68));
-    // важіль: вісь унизу спереду, диск на важелі, ручка зверху на рівні грудей
-    parts.push(el('rect', { x: 100, y: 208, width: 18, height: 10, fill: C.metal, stroke: C.metalEdge }));
-    parts.push(plate([108, 214], 28));
-    parts.push(orange([96, FLOOR - 26], [134, 170], 13));
-    parts.push(metalDot([96, FLOOR - 26], 8));
-    const color = sel ? gripColor(sel) : null;
-    const sideHandle = el('rect', { x: 126, y: 162, width: 36, height: 14, rx: 7, fill: C.rubber });
-    if (grip) {
-      parts.push(zone('grip', `${grip.label}: змінити`,
-        ring(116, 150, 54, 38, 10) + sideHandle
-        + fitBadge(grip, { x: 250, y: 14, w: 104, h: 62, value: sel ? sel.label : null, raw: sel ? sel.id : null, swatch: color, valueSize: 22 })
-        + guide(250, 64, 170, 158)));
-    } else {
-      parts.push(sideHandle);
+  HINTS: SEAT_HINTS,
+  PICKERS: { seat: heightPicker('seat', SEAT_HINTS), grip: rowGripPicker },
+  build(exerciseId, mini) {
+    const S = scene3d({ yaw: 36, pitch: 24, mini });
+    floorShadow(S, 0, 10, 84, 70);
+    baseFrame(S, { x: 32, y0: -40, y1: 66, cross: [-36, 62], mid: [-36, 62] });
+    for (const s of [-1, 1]) beam(S, [s * 32, 62, 3], [s * 50, 74, 3], 8, 6, FR);
+    seatOnPost(S, { y: -6, top: SEAT_TOP });
+    S.mark('seat', [-16, 4, SEAT_TOP]);   // край сидіння (фіксатор під ним закритий млинцем)
+    // грудна подушка на стійці
+    beam(S, [0, 36, 3], [0, 30, 80], 8, 8, FR);
+    beam(S, [0, 22, 72], [0, 23, 104], 22, 8, P3.pad);
+    // підніжки
+    box(S, [-26, 34, 9], [26, 46, 13], P3.metal);
+    for (const s of [-1, 1]) {
+      box(S, [s * 32 - 5, 52, 16], [s * 32 + 5, 62, 30], FR);
+      beam(S, [s * 32, 57, 22], [s * 31, 58, 98], 8, 7, P3.orange);
+      plateOn(S, [s * 46, 57, 66], [s, 0, 0], 19);
+      tube(S, [[s * 31, 58, 104], [s * 13, 58, 104], [s * 9, 58, 99], [s * 9, 58, 90], [s * 15, 58, 87]], 4.8, P3.rubber);
     }
-    parts.push(arrow([[126, 128], [180, 128]]));
-    parts.push(text(70, 132, 'до себе', { 'font-size': 12, fill: MOVE, 'font-weight': 700 }));
-    parts.push(title('Тяга до себе, ручки на рівні грудей', 14, 24));
-
-    // --- великий малюнок ручки спереду з трьома зонами ---
-    let y = FLOOR + 24;
-    if (grip) {
-      const opts = (grip.options || []).filter((o) => !o.deleted);
-      parts.push(divider(336));
-      parts.push(text(14, 358, `${grip.label} — де брати ручку`, { 'font-size': 15, 'font-weight': 700, fill: C.ink }));
-      parts.push(text(W - 14, 358, 'вигляд спереду', { 'text-anchor': 'end', 'font-size': 11.5, fill: C.muted }));
-      parts.push(el('rect', { x: 170, y: 378, width: 20, height: 102, rx: 4, fill: C.frame, opacity: 0.35 }));
-      parts.push(rowHandleFront());
-      opts.forEach((opt) => {
-        const on = sel && sel.id === opt.id;
-        parts.push(el('g', {
-          'data-adj': 'grip', 'data-opt': opt.id, class: `sc-zone sc-grip${on ? ' is-selected' : ''}`,
-          role: 'button', tabindex: 0, 'aria-label': `${grip.label}: ${opt.label}`,
-        }, el('title', {}, esc(opt.label)) + rowGripSeg(opt, sel)));
-      });
-      parts.push(optionChips(grip, sel, { y: 492, numbered: false }));
-      y = 548;
-    }
-    const f = footer(y, { legends: [seat], hints: LR_HINTS, approx: isApprox(seat) });
-    parts.push(f.svg);
-    return svgRoot(W, f.y + 4, 'Схема горизонтальної тяги (тяга до себе): висота сидіння і хват', parts.join(''));
+    S.mark('grip', [10, 58, 94]);
+    human(S, {
+      pelvis: [0, -8, SEAT_TOP + 9], lean: 0.22,
+      hand: (s) => [s * 21, 58, 104],
+      elbowPole: (s) => [s, 0, -0.5],
+      ankle: (s) => [s * 15, 40, 18], kneePole: () => [0, 0.3, 1],
+    });
+    return renderScene(S, 'Горизонтальна тяга (тяга до себе): грудьми до подушки, ручки на рівні грудей');
   },
-  optionIcon(adjustment, optionId) {
-    if (adjustment.id !== 'grip' || !GRIP_PATHS[optionId]) return '';
-    const opt = (adjustment.options || []).find((o) => o.id === optionId) || { id: optionId };
-    const inner = path(GRIP_ALL, 14, C.rubber) + metalDot([204, 389], 7.5) + path(GRIP_PATHS[optionId], 12, gripColor(opt));
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="190 378 150 92" width="120" height="74" class="grip-icon" aria-hidden="true">${inner}</svg>`;
-  },
-};
+});
 
 // ======================================================================
-// №24 Тяга в блоці — фото 24: сидиш грудьми до подушки, помаранчеві важелі від блоку,
-// ручки на рівні грудей, тяга до себе. Регулювань немає.
+// №24 Тяга в блоці (ARP) — фото сайту 24: сидиш грудьми до подушки, помаранчеві важелі з віссю
+// внизу, ручки на рівні грудей; попереду — велика графітова дуга рами, стійка з вагою збоку.
 // ======================================================================
-const cablePull = {
+const cablePull = artModule({
   id: 'cable-pull',
-  ADJUSTMENTS: [],
-  HINTS: {},
-  draw() {
-    const parts = [floorLine(), base(14, 340), stack(270, 40, 70, FLOOR - 52)];
-    // велика дуга рами спереду
-    parts.push(path(`M40 ${FLOOR - 10} L40 140 Q40 116 64 116 L110 116`, 14, C.frame));
-    parts.push(bar([210, FLOOR - 10], [210, 248], 10, C.frame));
-    parts.push(pad(168, 236, 84, 15));
-    parts.push(bar([152, FLOOR - 10], [158, 206], 10, C.frame));
-    parts.push(bar([158, 206], [190, 196], 8, C.frame));
-    parts.push(seatedSide({ hip: [226, 240], hands: [[156, 170], [160, 168]], foot: [128, FLOOR - 8], lean: -6 }));
-    parts.push(pad(190, 150, 16, 68));
-    // важіль від осі внизу до ручки, трос до блоку
-    parts.push(line([110, 252], [290, 252], 2.5, '#7d8a86'));
-    parts.push(orange([110, 262], [146, 172], 12));
-    parts.push(metalDot([110, 262], 8));
-    parts.push(bar([138, 164], [170, 164], 12, C.rubber));
-    parts.push(arrow([[136, 132], [192, 132]]));
-    parts.push(text(124, 108, 'до себе', { 'font-size': 12, fill: MOVE, 'font-weight': 700 }));
-    parts.push(title('Тяга до себе з упором грудьми', 120, 24));
-    return svgRoot(W, FLOOR + 12, 'Схема тренажера «Тяга в блоці»', parts.join(''));
+  build(exerciseId, mini) {
+    const S = scene3d({ yaw: 36, pitch: 24, mini });
+    floorShadow(S, -10, 14, 96, 74);
+    tower(S, [-100, -60, 0], [-70, 10, 156], P3.panelArp);
+    beam(S, [-70, -30, 3], [0, -30, 3], 7, 6, FR);
+    beam(S, [0, -34, 3], [0, 74, 3], 8, 6, FR);
+    for (const s of [-1, 1]) beam(S, [s * 60, 74, 0], [s * 60, 74, 84], 11, 11, FR);
+    beams(S, [[-60, 74, 52], [-34, 86, 52], [34, 86, 52], [60, 74, 52]], 11, 10, FR);
+    seatOnPost(S, { y: -8, top: SEAT_TOP, pin: false });
+    beam(S, [0, 34, 3], [0, 30, 80], 8, 8, FR);
+    beam(S, [0, 22, 72], [0, 23, 104], 22, 8, P3.pad);
+    box(S, [-26, 36, 9], [26, 48, 13], P3.metal);
+    for (const s of [-1, 1]) {
+      box(S, [s * 24 - 4, 44, 12], [s * 24 + 4, 54, 24], FR);
+      beam(S, [s * 24, 49, 18], [s * 26, 54, 100], 7, 7, P3.orange);
+      grip(S, [[s * 28, 54, 102], [s * 12, 56, 102]]);
+    }
+    cable(S, [-24, 49, 14], [-70, 0, 14]);
+    human(S, {
+      pelvis: [0, -10, SEAT_TOP + 9], lean: 0.22,
+      hand: (s) => [s * 19, 55, 102],
+      elbowPole: (s) => [s, 0, -0.5],
+      ankle: (s) => [s * 15, 42, 18], kneePole: () => [0, 0.3, 1],
+    });
+    return renderScene(S, 'Тренажер «Тяга в блоці»: грудьми до подушки, ручки до себе');
   },
-};
+});
 
 // ======================================================================
-// №25 Тяга вертикального блоку — фото 25: висока стійка з блоком, трос зверху, сидиш під ним,
-// стегна під валиком. Регулювання: ручка на карабіні і притискний валік.
+// №25 Тяга вертикального блоку — фото сайту 25: стійка з вагою попереду, над людиною — кронштейн
+// з блоком, трос униз до ручки; стегна під валиком. Регулювання: ручка на карабіні і валік.
 // ======================================================================
-const LAT_HINTS = { roller: { first: 'найнижче', last: 'найвище' } };
-const latPulldown = {
+const latPulldown = artModule({
   id: 'lat-pulldown',
   ADJUSTMENTS: ['handle', 'roller'],
-  HINTS: LAT_HINTS,
-  draw(values = {}, adjustments = []) {
-    const handle = pickAdj(adjustments, 'handle');
-    const roller = pickAdj(adjustments, 'roller');
-    const sel = optValue(handle, values);
-    const parts = [floorLine(FLOOR, 250), base(14, 250), stack(14, 30, 70, FLOOR - 42)];
-    // верхня балка з блоком над людиною
-    parts.push(el('rect', { x: 70, y: 28, width: 150, height: 14, rx: 7, fill: C.frame, stroke: C.frameEdge }));
-    parts.push(metalDot([212, 48], 8));
-    parts.push(line([212, 56], [204, 90], 2.5, '#7d8a86'));
-    parts.push(bar([214, FLOOR - 10], [214, 252], 10, C.frame));
-    parts.push(pad(170, 240, 84, 15));
-    parts.push(seatedSide({ hip: [226, 242], hands: [[186, 112], [196, 110]], foot: [148, FLOOR - 8], lean: 0, armBend: 'right' }));
-    parts.push(rollerControl(roller, values, {
-      x: 176, y: 224, postBottom: 262, rulerX: 270, rulerMid: 214, badge: [250, 96], hints: LAT_HINTS,
-    }));
-    // карабін і ручка
-    const clip = el('ellipse', { cx: 204, cy: 94, rx: 4.5, ry: 6, fill: 'none', stroke: C.metalEdge, 'stroke-width': 2.5 });
-    const art = sel ? handleArt(sel.id) : '';
-    const small = art
-      ? `<svg x="170" y="86" width="66" height="44" viewBox="0 0 120 80" data-handle="${sel.id}">${art}</svg>`
-      : bar([170, 108], [238, 108], 7, C.metal, C.metalEdge);
-    parts.push(arrow([[124, 96], [124, 150]]));
-    parts.push(text(96, 88, 'вниз', { 'font-size': 12, fill: MOVE, 'font-weight': 700 }));
-    parts.push(title('Тяга зверху вниз', 96, 24));
-    let y = FLOOR + 18;
-    if (handle) {
-      parts.push(zone('handle', `${handle.label}: змінити`,
-        ring(162, 80, 84, 54) + clip + small
-        + el('rect', { x: 10, y, width: W - 20, height: 92, rx: 16, fill: '#ffffff', stroke: C.accent, 'stroke-width': 2.5, 'stroke-dasharray': sel ? null : '6 4' })
-        + text(24, y + 22, 'Яку ручку чіпляти на карабін', { 'font-size': 13, 'font-weight': 600, fill: C.muted })
-        + (art
-          ? `<svg x="24" y="${y + 28}" width="96" height="60" viewBox="0 0 120 80" data-handle="${sel.id}" class="sc-big-handle">${art}</svg>`
-          : text(70, y + 64, '?', { 'font-size': 28, 'font-weight': 800, 'text-anchor': 'middle', fill: C.accent }))
-        + fitBadge(handle, { x: 130, y: y + 28, w: 214, h: 56, value: sel ? sel.label : null, raw: sel ? sel.id : null, valueSize: 20 })));
-      y += 108;
-    } else {
-      parts.push(clip + small);
-    }
-    const f = footer(y + 6, { legends: [roller], hints: LAT_HINTS, approx: isApprox(roller) });
-    parts.push(f.svg);
-    return svgRoot(W, f.y + 4, 'Схема тяги вертикального блоку: ручка і притискний валік', parts.join(''));
+  HINTS: ROLLER_HINTS,
+  PICKERS: { handle: handlePicker, roller: heightPicker('roller', ROLLER_HINTS) },
+  build(exerciseId, mini) {
+    const S = scene3d({ yaw: 56, pitch: 20, mini });
+    floorShadow(S, 0, 30, 64, 80);
+    tower(S, [-28, 62, 0], [28, 94, 206]);
+    beam(S, [0, -30, 3], [0, 62, 3], 8, 6, FR);
+    beam(S, [-30, -28, 3], [30, -28, 3], 8, 6, FR);
+    beams(S, [[0, 70, 206], [0, 6, 210]], 9, 9, FR);
+    disc(S, [0, 6, 202], [1, 0, 0], 6, P3.metal, { thick: 3 });
+    seatOnPost(S, { y: -2, top: SEAT_TOP, pin: false });
+    beam(S, [0, 36, 3], [0, 28, 70], 7, 7, FR);
+    tube(S, [[-24, 24, 76], [24, 24, 76]], 3.6, P3.metal);
+    for (const s of [-1, 1]) tube(S, [[s * 5, 24, 76], [s * 23, 24, 76]], 12, P3.pad, { shine: false });
+    S.mark('roller', [24, 24, 76]);
+    cable(S, [0, 6, 196], [0, 4, 163]);
+    tube(S, [[0, 4, 165], [0, 4, 158]], 2.5, P3.metal);
+    tube(S, [[-54, 4, 150], [-46, 4, 157], [46, 4, 157], [54, 4, 150]], 3.4, P3.metal);
+    for (const s of [-1, 1]) grip(S, [[s * 46, 4, 157], [s * 54, 4, 150]], { w: 4.4 });
+    S.mark('handle', [0, 4, 163]);
+    human(S, {
+      pelvis: [0, -4, SEAT_TOP + 9],
+      hand: (s) => [s * 37, 4, 157],
+      elbowPole: (s) => [s, -0.3, -0.5],
+      ...seatedLegs(46, 16),
+    });
+    return renderScene(S, 'Тренажер «Тяга вертикального блоку»: ручка на тросі над головою, стегна під валиком');
   },
-};
+});
 
 // ======================================================================
 // Гантелі (12 вправ) — людина з гантелями в характерній позі; регулювань немає.
