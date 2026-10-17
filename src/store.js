@@ -185,6 +185,23 @@ export async function openStore({
       await done(tx);
     },
 
+    /**
+     * Імпорт: записує змінене однією транзакцією (або все, або нічого).
+     * changes = { clients?, equipment?, sessions?, settings?: записи як є (updatedAt не чіпає), meta?: patch }
+     */
+    async applyChanges(changes) {
+      const cur = (await getMeta()) || DEFAULT_META();
+      const tx = db.transaction([META, ...KINDS], 'readwrite');
+      if (changes.meta && Object.keys(changes.meta).length) {
+        tx.objectStore(META).put({ ...cur, ...changes.meta, deviceId: cur.deviceId }, META_KEY);
+      }
+      for (const kind of KINDS) {
+        const os = tx.objectStore(kind);
+        for (const rec of changes[kind] || []) os.put(rec);
+      }
+      await done(tx);
+    },
+
     close() {
       db.close();
     },

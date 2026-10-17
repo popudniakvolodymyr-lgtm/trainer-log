@@ -3,9 +3,11 @@
 import { h, mount, toast } from './dom.js';
 import { installHint, isStandalone } from './start.js';
 import { formatDate, today } from '../core/model.js';
+import { sendToTrainer, openFile, saveBackup, backupBanner } from './exchange.js';
 
-const soon = (text) => h('button', { class: 'btn btn-big', type: 'button', disabled: true },
-  text, h('span', { class: 'soon' }, 'скоро'));
+const action = (id, text, onclick, primary = false) => h('button', {
+  class: `btn btn-big${primary ? ' btn-primary' : ''}`, type: 'button', id, onclick,
+}, text);
 
 const dateOf = (ms) => formatDate(today(new Date(ms)));
 
@@ -45,8 +47,20 @@ export async function renderSettings(container, ctx) {
   }
 
   const exchange = role === 'client'
-    ? [soon('Надіслати тренеру'), soon('Відкрити файл від тренера')]
-    : [soon('Відкрити файл від клієнта')];
+    ? [action('send-file', 'Надіслати тренеру', () => sendToTrainer(ctx), true),
+      action('open-file', 'Відкрити файл від тренера',
+        () => openFile(ctx, { expect: ['trainer-to-client'], title: 'Файл від тренера' }))]
+    : [action('open-file', 'Відкрити файл від клієнта',
+      () => openFile(ctx, { expect: ['client-to-trainer'], title: 'Файл від клієнта' }), true),
+    h('p', { class: 'muted' }, 'Щоб надіслати клієнту його записи, відкрийте його картку → «Надіслати клієнту».')];
+  const banner = await backupBanner(ctx);
+
+  const equipmentBlock = role === 'trainer'
+    ? h('section', { class: 'card', id: 'settings-equipment' },
+      h('h2', null, 'Тренажери'),
+      h('p', { class: 'muted' }, 'Назви, вправи, регулювання; сховати непотрібні або додати свій.'),
+      h('a', { class: 'btn btn-big', href: '#/equipment', id: 'equipment-link' }, 'Тренажери'))
+    : null;
 
   mount(container,
     h('div', { class: 'settings' },
@@ -58,12 +72,15 @@ export async function renderSettings(container, ctx) {
       h('section', { class: 'card', id: 'settings-exchange' },
         h('h2', null, 'Обмін і копія'),
         h('div', { class: 'stack', id: 'exchange-actions' }, exchange),
+        banner,
         h('div', { class: 'stack', id: 'backup-actions' },
-          soon('Зберегти копію'),
-          soon('Відновити з копії')),
+          action('save-backup', 'Зберегти копію', () => saveBackup(ctx)),
+          action('restore-backup', 'Відновити з копії',
+            () => openFile(ctx, { expect: ['backup'], title: 'Відновити з копії' }))),
         h('p', { class: 'muted' }, meta.lastBackupAt
           ? `Остання копія: ${dateOf(meta.lastBackupAt)}`
           : 'Копію ще не зберігали.')),
+      equipmentBlock,
       h('section', { class: 'card' },
         h('h2', null, 'Про програму'),
         h('p', null, 'Усі дані — лише на цьому телефоні, без реєстрації й інтернету.'),

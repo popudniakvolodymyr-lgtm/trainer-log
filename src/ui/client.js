@@ -5,6 +5,7 @@
 import { h, mount } from './dom.js';
 import { GROUPS } from '../core/model.js';
 import { listSessions, recentEquipmentIds } from './log-data.js';
+import { sendButton, backupBanner } from './exchange.js';
 
 const RECENT_LIMIT = 6;
 
@@ -73,8 +74,12 @@ export async function renderClient(container, ctx) {
     noMatch.hidden = shown > 0;
   });
 
+  const banner = await backupBanner(ctx);
+
   mount(container, h('div', { class: 'screen' },
     h('h1', null, client.name),
+    banner,
+    sendButton(ctx, client.id),
     search,
     body,
     noMatch));

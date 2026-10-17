@@ -2,6 +2,7 @@
 
 import { h, mount, sheet, toast } from './dom.js';
 import { uuid } from '../core/model.js';
+import { openFile } from './exchange.js';
 
 /** Чи відкрито програму з головного екрана (встановлену). */
 export function isStandalone() {
@@ -67,8 +68,6 @@ export function renderStart(container, ctx) {
     await ctx.store.setMeta({ role: 'trainer', clientId: null });
     ctx.navigate('#/clients');
   };
-  const soon = (text) => h('button', { class: 'btn btn-big', type: 'button', disabled: true },
-    text, h('span', { class: 'soon' }, 'скоро'));
 
   mount(container,
     h('div', { class: 'start' },
@@ -79,7 +78,13 @@ export function renderStart(container, ctx) {
       h('div', { class: 'start-actions' },
         h('button', { class: 'btn btn-primary btn-big', type: 'button', id: 'role-trainer', onclick: chooseTrainer }, 'Я тренер'),
         h('button', { class: 'btn btn-primary btn-big', type: 'button', id: 'role-client', onclick: () => askClientName(ctx) }, 'Я клієнт'),
-        soon('Відкрити файл від тренера'),
-        soon('Відновити з копії')),
+        h('button', {
+          class: 'btn btn-big', type: 'button', id: 'open-trainer-file',
+          onclick: () => openFile(ctx, { expect: ['trainer-to-client'], title: 'Файл від тренера' }),
+        }, 'Відкрити файл від тренера'),
+        h('button', {
+          class: 'btn btn-big', type: 'button', id: 'restore-backup',
+          onclick: () => openFile(ctx, { expect: ['backup'], title: 'Відновити з копії' }),
+        }, 'Відновити з копії')),
       isStandalone() ? null : installHint()));
 }
