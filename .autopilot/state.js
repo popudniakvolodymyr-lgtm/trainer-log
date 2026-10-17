@@ -2,19 +2,19 @@ window.STATE =
 {
   "version": 2,
   "slug": "trainer-log",
-  "dir": "2026-10-17-trainer-log",
+  "dir": "2026-10-17-trainer-log--wip",
   "title": "Журнал фітнес-тренера",
   "mode": "semi",
   "depth": "normal",
   "tier": "T2",
-  "briefFile": "2026-10-17-brief-pravky.md",
+  "briefFile": "2026-10-17-brief-pravky-2.md",
   "memoryFile": "AGENTS.md",
   "memoryOwner": "autopilot",
   "skillDir": "C:/Антігравіті ресьорч/.claude/skills/autopilot",
   "baseCommit": "a3eeb4c",
   "startedAt": "2026-10-17T17:50:53+03:00",
-  "updatedAt": "2026-10-17T20:31:42+03:00",
-  "finishedAt": "2026-10-17T20:31:42+03:00",
+  "updatedAt": "2026-10-17T21:37:03+03:00",
+  "finishedAt": null,
   "stages": [
     {
       "id": "preflight",
@@ -25,51 +25,44 @@ window.STATE =
     {
       "id": "manifest",
       "status": "done",
-      "startedAt": "2026-10-17T19:44:10+03:00",
-      "finishedAt": "2026-10-17T19:44:42+03:00"
+      "startedAt": "2026-10-17T21:35:18+03:00",
+      "finishedAt": "2026-10-17T21:35:25+03:00"
     },
     {
       "id": "briefing",
       "status": "skipped",
-      "startedAt": "2026-10-17T19:44:40+03:00",
-      "finishedAt": "2026-10-17T19:44:40+03:00",
+      "startedAt": "2026-10-17T21:35:23+03:00",
+      "finishedAt": "2026-10-17T21:35:23+03:00",
       "note": "правки однозначні; два питання без відповіді — взято запропоноване"
     },
     {
       "id": "spec",
       "status": "done",
-      "startedAt": "2026-10-17T19:44:42+03:00",
-      "finishedAt": "2026-10-17T19:45:41+03:00"
+      "startedAt": "2026-10-17T21:35:25+03:00",
+      "finishedAt": "2026-10-17T21:36:58+03:00"
     },
     {
       "id": "plan",
-      "status": "done",
-      "startedAt": "2026-10-17T19:45:41+03:00",
-      "finishedAt": "2026-10-17T19:46:17+03:00"
+      "status": "active",
+      "startedAt": "2026-10-17T21:36:58+03:00"
     },
     {
       "id": "build",
-      "status": "done",
-      "startedAt": "2026-10-17T19:46:17+03:00",
-      "finishedAt": "2026-10-17T20:19:24+03:00"
+      "status": "pending"
     },
     {
       "id": "review",
-      "status": "done",
-      "startedAt": "2026-10-17T20:19:24+03:00",
-      "finishedAt": "2026-10-17T20:24:52+03:00"
+      "status": "pending"
     },
     {
       "id": "final",
-      "status": "done",
-      "startedAt": "2026-10-17T20:24:52+03:00",
-      "finishedAt": "2026-10-17T20:31:42+03:00"
+      "status": "pending"
     }
   ],
   "requirements": {
-    "total": 66,
+    "total": 80,
     "done": 66,
-    "inTicket": 0,
+    "inTicket": 14,
     "inSpec": 0,
     "placeholder": 0,
     "deferred": 0,
@@ -303,13 +296,13 @@ window.STATE =
       "review": "да — фундамент і міграція даних користувача",
       "model": "сильная",
       "status": "done",
+      "startedAt": "2026-10-17T19:46:18+03:00",
+      "finishedAt": "2026-10-17T20:05:04+03:00",
       "retries": 0,
       "repairs": 1,
-      "startedAt": "2026-10-17T19:46:18+03:00",
       "repairFindings": [
         "змінені тренером eq-16 / старі Гантелі не мають ставати retired або мають повертатися з «Тренажери»"
       ],
-      "finishedAt": "2026-10-17T20:05:04+03:00",
       "tests": {
         "passed": 124,
         "failed": 0
@@ -338,10 +331,10 @@ window.STATE =
       "review": "нет",
       "model": "сильная",
       "status": "done",
-      "retries": 0,
-      "repairs": 0,
       "startedAt": "2026-10-17T20:05:06+03:00",
       "finishedAt": "2026-10-17T20:19:20+03:00",
+      "retries": 0,
+      "repairs": 0,
       "tests": {
         "passed": 143,
         "failed": 0
@@ -368,15 +361,104 @@ window.STATE =
       "review": "нет",
       "model": "обычная",
       "status": "done",
-      "retries": 0,
-      "repairs": 0,
       "startedAt": "2026-10-17T20:05:06+03:00",
       "finishedAt": "2026-10-17T20:11:33+03:00",
+      "retries": 0,
+      "repairs": 0,
       "tests": {
         "passed": 131,
         "failed": 1
       },
       "commit": "feb45f5"
+    },
+    {
+      "id": "08",
+      "title": "Новий вигляд схем, значки в меню, навігація «назад»",
+      "requirements": [
+        "G18",
+        "G30",
+        "G31"
+      ],
+      "blockedBy": [],
+      "wave": 7,
+      "zone": [
+        "src/schemes/index.js",
+        "src/schemes/registry.js",
+        "src/schemes/svg.js",
+        "src/schemes/values.js",
+        "src/schemes/cardio.js",
+        "src/core/catalog.js",
+        "src/ui/client.js",
+        "src/ui/exercise.js",
+        "src/app.js",
+        "css/schemes.css",
+        "css/screens.css",
+        "sw.js",
+        "test/schemes.test.js",
+        "test/catalog.test.js",
+        "test/migration.test.js",
+        "test/nav.test.js"
+      ],
+      "review": "да — фундамент",
+      "model": "сильная",
+      "status": "pending",
+      "retries": 0,
+      "repairs": 0
+    },
+    {
+      "id": "09",
+      "title": "Схеми верху тіла в ракурсі 45°",
+      "requirements": [
+        "G19",
+        "G20",
+        "G26",
+        "G27",
+        "G28",
+        "G29"
+      ],
+      "blockedBy": [
+        "08"
+      ],
+      "wave": 8,
+      "zone": [
+        "src/schemes/upper.js",
+        "src/schemes/butterfly.js",
+        "src/schemes/low-row.js",
+        "src/schemes/lever-pulldown.js",
+        "test/schemes-upper.test.js"
+      ],
+      "review": "нет",
+      "model": "сильная",
+      "status": "pending",
+      "retries": 0,
+      "repairs": 0
+    },
+    {
+      "id": "10",
+      "title": "Схеми ніг і кардіо в ракурсі 45°",
+      "requirements": [
+        "G19",
+        "G21",
+        "G22",
+        "G23",
+        "G24",
+        "G25"
+      ],
+      "blockedBy": [
+        "08"
+      ],
+      "wave": 8,
+      "zone": [
+        "src/schemes/legs.js",
+        "src/schemes/cardio.js",
+        "test/schemes-legs.test.js",
+        "test/schemes-cardio.test.js"
+      ],
+      "review": "нет",
+      "model": "сильная",
+      "status": "pending",
+      "retries": 0,
+      "repairs": 0
     },
     {
       "id": "F1",
@@ -444,13 +526,7 @@ window.STATE =
     "src/ui/client.js:17 — сірий стиль рідкісних inline замість класу в css/screens.css",
     "src/store.js — виклик апгрейду каталогу при відкритті/replaceAll/applyChanges без автотесту"
   ],
-  "blind": {
-    "checked": 26,
-    "matched": 25,
-    "mismatches": [
-      "Гравітрони сірі в кінці групи «Руки», а не в кінці всього списку («в кінець списка сіреньких»)"
-    ]
-  },
+  "blind": null,
   "beats": [
     "2026-10-17T17:50:53+03:00",
     "2026-10-17T17:51:10+03:00",
@@ -520,9 +596,17 @@ window.STATE =
     "2026-10-17T20:24:52+03:00",
     "2026-10-17T20:31:15+03:00",
     "2026-10-17T20:31:16+03:00",
-    "2026-10-17T20:31:42+03:00"
+    "2026-10-17T20:31:42+03:00",
+    "2026-10-17T21:35:18+03:00",
+    "2026-10-17T21:35:19+03:00",
+    "2026-10-17T21:35:21+03:00",
+    "2026-10-17T21:35:23+03:00",
+    "2026-10-17T21:35:25+03:00",
+    "2026-10-17T21:36:58+03:00",
+    "2026-10-17T21:37:00+03:00",
+    "2026-10-17T21:37:03+03:00"
   ],
-  "rev": 70,
+  "rev": 78,
   "waiting": null,
   "waits": [
     {
@@ -1028,6 +1112,55 @@ window.STATE =
       "t": "2026-10-17T20:31:42+03:00",
       "k": "finish",
       "result": "Правки після першого запуску: крок ваги 5/2,5, каталог залу, схеми для кожного тренажера, розділ «Гантелі»"
+    },
+    {
+      "t": "2026-10-17T21:35:18+03:00",
+      "k": "reopen"
+    },
+    {
+      "t": "2026-10-17T21:35:21+03:00",
+      "k": "stage",
+      "id": "manifest",
+      "act": "start"
+    },
+    {
+      "t": "2026-10-17T21:35:23+03:00",
+      "k": "stage",
+      "id": "briefing",
+      "act": "skip",
+      "note": "правки однозначні; два питання без відповіді — взято запропоноване"
+    },
+    {
+      "t": "2026-10-17T21:35:25+03:00",
+      "k": "gate",
+      "g": "G1",
+      "ok": true,
+      "open": 0,
+      "total": 80
+    },
+    {
+      "t": "2026-10-17T21:35:25+03:00",
+      "k": "stage",
+      "id": "spec",
+      "act": "start"
+    },
+    {
+      "t": "2026-10-17T21:36:58+03:00",
+      "k": "stage",
+      "id": "plan",
+      "act": "start"
+    },
+    {
+      "t": "2026-10-17T21:37:00+03:00",
+      "k": "tickets",
+      "n": 11
+    },
+    {
+      "t": "2026-10-17T21:37:03+03:00",
+      "k": "gate",
+      "g": "G3",
+      "ok": true,
+      "problems": 0
     }
   ],
   "reqList": [
@@ -1360,35 +1493,92 @@ window.STATE =
       "id": "G17",
       "text": "«круг ваги на дискових тренажерах 2,5 кг. 2,5, 5, 10, 15, 20»",
       "status": "done"
+    },
+    {
+      "id": "G18",
+      "text": "«треба ще сюди додати якісь міні значки щоб було понятно сразу що це за тренажер»; «на тренажери … просто менші силуети тренажера, а на гантелі просто значок гантелі»",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G19",
+      "text": "«давай всі тренажери попробуємо зобразити не збоку а під кутом 45»",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G20",
+      "text": "«жим у тренажері ось так виглядає у тебе схемка якась дивна» (+ фото із залу)",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G21",
+      "text": "«жим ногами лежачи у тебе також трохи дивна схема»",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G22",
+      "text": "Зведення ніг — «тут тоже не зрозуміло нічого н акартинці»; Розведення ніг — «не гарно виглядає, зроби якось зверху під кутом»",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G23",
+      "text": "Згинання ніг лежачи — «тут тоже» (+ фото VNK)",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G24",
+      "text": "«гак машина ось така … у нас в залі саме така» (зворотна гак-машина)",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G25",
+      "text": "Розгинання ніг — «регулюється спинка вперед назад, і 2 шарніра, 1 нав сам валік, 2 … вище … нахил всього цього ричага»",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G26",
+      "text": "Відведення рук сидячи (фото); «регулюється тільки сидіння як і було»",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G27",
+      "text": "Жим у тренажері сидячи — «дуже візуально складна схема, не зрозуміло взагалі що це за тренажер»",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G28",
+      "text": "«на прес також перемалюй тренажер»",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G29",
+      "text": "Жим на трицепс — «тут одна рука так одна так»",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G30",
+      "text": "«натискую стрілочку назад мене не викидує в головне меню а повертає попередній режим»",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G31",
+      "text": "«мене повертає не в ту позицію на низ сторінки біля гантель а на самий початок сторінки»",
+      "status": "in-ticket"
     }
   ],
   "gates": {
     "G1": {
       "ok": true,
-      "at": "2026-10-17T19:44:42+03:00",
+      "at": "2026-10-17T21:35:25+03:00",
       "open": 0,
-      "total": 65
+      "total": 80
     },
     "G3": {
       "ok": true,
-      "at": "2026-10-17T19:45:56+03:00",
+      "at": "2026-10-17T21:37:03+03:00",
       "problems": 0
-    },
-    "G2": {
-      "ok": false,
-      "at": "2026-10-17T19:47:10+03:00",
-      "found": 4,
-      "fixed": 1,
-      "deferred": 0
-    },
-    "G4": {
-      "ok": false,
-      "at": "2026-10-17T20:31:15+03:00",
-      "checked": 26,
-      "matched": 25
     }
   },
-  "result": "Правки після першого запуску: крок ваги 5/2,5, каталог залу, схеми для кожного тренажера, розділ «Гантелі»",
+  "result": null,
   "report": [
     "У день, коли і тренер, і клієнт записали ту саму вправу, історія показує цю дату двома рядками (нічого не губиться)",
     "Сховище і операції над записами не мають автоматичних тестів — перевірені вручну в браузері",
