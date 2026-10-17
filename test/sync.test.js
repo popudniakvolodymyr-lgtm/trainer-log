@@ -417,3 +417,97 @@ test('summaryText і ім\'я файлу', () => {
   assert.equal(exchangeFileName('Олена Петрівна', new Date(2026, 9, 17)), 'журнал-Олена-Петрівна-2026-10-17.json');
   assert.equal(exchangeFileName('a/b:c', new Date(2026, 9, 17)), 'журнал-a-b-c-2026-10-17.json');
 });
+
+// --- ремонт: безпечні id, id налаштувань, глибша перевірка вмісту ------------------
+
+const BROKEN = /Файл пошкоджений/;
+const U1 = '3f2b8c1e-9a4d-4c2b-8e1f-0a1b2c3d4e5f';
+
+function trainerFileFor(clientId, extra = {}) {
+  const t = phone({ role: 'trainer', clients: [{ id: clientId, name: 'Олена', updatedAt: 1 }],
+    sessions: [ses(U1, clientId, '2026-10-10', [{ reps: 10, weight: 40 }], 100)],
+    settings: [setting(clientId, 'seat', 3, 300)] });
+  return { ...buildPackage('trainer-to-client', selectForClient(t, clientId), t.meta), ...extra };
+}
+
+test('parsePackage відкидає id поза безпечним шаблоном — файл не робить телефон «цеглиною»', () => {
+  for (const bad of ['a/b', '%', '../x', 'a b', '#/start', 'a|b', '']) {
+    const pkg = trainerFileFor('c1');
+    const cases = {
+      client: { ...pkg, client: { id: bad, name: 'Олена' } },
+      clients: { ...pkg, clients: [{ id: bad, name: 'Олена', updatedAt: 1 }] },
+      session: { ...pkg, sessions: [{ ...pkg.sessions[0], id: bad }] },
+      sessionClient: { ...pkg, sessions: [{ ...pkg.sessions[0], clientId: bad }] },
+      sessionEquipment: { ...pkg, sessions: [{ ...pkg.sessions[0], equipmentId: bad }] },
+      sessionExercise: { ...pkg, sessions: [{ ...pkg.sessions[0], exerciseId: bad }] },
+      settingClient: { ...pkg, settings: [{ ...pkg.settings[0], clientId: bad }] },
+      settingEquipment: { ...pkg, settings: [{ ...pkg.settings[0], equipmentId: bad }] },
+      equipment: { ...pkg, equipment: [{ ...pkg.equipment[0], id: bad }] },
+      exercise: { ...pkg, equipment: [{ ...pkg.equipment[0], exercises: [{ id: bad, name: 'x' }] }] },
+    };
+    for (const [name, p] of Object.entries(cases)) {
+      const r = parsePackage(JSON.stringify(p));
+      assert.equal(r.ok, false, `${name} = ${JSON.stringify(bad)} мав бути відкинутий`);
+      assert.match(r.error, BROKEN);
+    }
+  }
+  const t = phone({ role: 'trainer' });
+  const backup = buildPackage('backup', selectBackup(t), { role: 'client', clientId: 'a/b', deviceId: 'd' });
+  assert.equal(parsePackage(JSON.stringify(backup)).ok, false, 'копія клієнта з битим clientId');
+  const aliased = buildPackage('backup', selectBackup(t), { role: 'trainer', deviceId: 'd', aliases: { x: '%' } });
+  assert.equal(parsePackage(JSON.stringify(aliased)).ok, false, 'alias з битим id');
+  // Справжні id програми: uuid, eq-…, з seed — приймаються.
+  assert.equal(parsePackage(JSON.stringify(trainerFileFor(U1))).ok, true);
+  assert.equal(parsePackage(JSON.stringify(trainerFileFor('c1'))).ok, true);
+});
+
+test('імпортоване налаштування має id = settingId(clientId, exerciseId, adjustmentId), інакше файл відкинуто', () => {
+  const c = phone({ role: 'client', clientId: 'c1', clients: [{ id: 'c1', name: 'Олена', updatedAt: 1 }],
+    settings: [setting('c1', 'seat', 3, 300, 'client')] });
+  const t = phone({ role: 'trainer', clients: [{ id: 'c1', name: 'Олена', updatedAt: 1 }, { id: 'c2', name: 'Іра', updatedAt: 1 }],
+    settings: [setting('c2', 'seat', 1, 100)] });
+  const pkg = buildPackage('client-to-trainer', selectForTrainer(c), c.meta);
+  // Підмінений id перезаписав би налаштування іншого клієнта.
+  const evil = { ...pkg, settings: [{ ...pkg.settings[0], id: 'c2|eq-03-a|seat' }] };
+  const r = importText(t, JSON.stringify(evil));
+  assert.match(r.error || '', BROKEN);
+  assert.equal(r.state.settings.find((s) => s.id === 'c2|eq-03-a|seat').value, 1, 'чуже налаштування не зачеплено');
+  const ok = importText(t, JSON.stringify(pkg));
+  for (const s of ok.changes.settings) assert.equal(s.id, `${s.clientId}|${s.exerciseId}|${s.adjustmentId}`);
+});
+
+test('пошкоджений вміст (сесія без тренажера, вправи, дати; вправа без назви; count поза 1…50) → «Файл пошкоджений…», нічого не записано', () => {
+  const pkg = trainerFileFor('c1');
+  const s0 = pkg.sessions[0];
+  const st0 = pkg.settings[0];
+  const eq0 = pkg.equipment[0];
+  const { equipmentId, exerciseId, date, ...bareSession } = s0;
+  const { equipmentId: _e, ...bareSetting } = st0;
+  const withAdj = (adj) => ({ ...pkg, equipment: [{ ...eq0, adjustments: [adj] }] });
+  const cases = {
+    noEquipmentId: { ...pkg, sessions: [{ ...bareSession, exerciseId, date }] },
+    noExerciseId: { ...pkg, sessions: [{ ...bareSession, equipmentId, date }] },
+    noDate: { ...pkg, sessions: [{ ...bareSession, equipmentId, exerciseId }] },
+    dateDots: { ...pkg, sessions: [{ ...s0, date: '17.10.2026' }] },
+    dateShort: { ...pkg, sessions: [{ ...s0, date: '2026-1-5' }] },
+    dateJunk: { ...pkg, sessions: [{ ...s0, date: '2026-10-10x' }] },
+    settingNoEquipment: { ...pkg, settings: [bareSetting] },
+    exerciseNoId: { ...pkg, equipment: [{ ...eq0, exercises: [{ name: 'x' }] }] },
+    exerciseNoName: { ...pkg, equipment: [{ ...eq0, exercises: [{ id: 'eq-03-a' }] }] },
+    exerciseNotObj: { ...pkg, equipment: [{ ...eq0, exercises: [null] }] },
+    count0: withAdj({ id: 'seat', label: 'С', kind: 'positions', count: 0 }),
+    count51: withAdj({ id: 'seat', label: 'С', kind: 'positions', count: 51 }),
+    countHuge: withAdj({ id: 'seat', label: 'С', kind: 'positions', count: 1e9 }),
+    countText: withAdj({ id: 'seat', label: 'С', kind: 'positions', count: '5' }),
+    countFrac: withAdj({ id: 'seat', label: 'С', kind: 'positions', count: 2.5 }),
+  };
+  for (const [name, p] of Object.entries(cases)) {
+    const before = phone({ role: 'client', clientId: 'c1', clients: [{ id: 'c1', name: 'Олена', updatedAt: 1 }] });
+    const snap = JSON.stringify(before);
+    const r = importText(before, JSON.stringify(p));
+    assert.match(r.error || '', BROKEN, `${name} мав бути відкинутий`);
+    assert.equal(JSON.stringify(r.state), snap, `${name}: нічого не записано`);
+  }
+  assert.equal(parsePackage(JSON.stringify(withAdj({ id: 'seat', label: 'С', kind: 'positions', count: 50 }))).ok, true);
+  assert.equal(parsePackage(JSON.stringify(withAdj({ id: 'seat', label: 'С', kind: 'positions', count: 1 }))).ok, true);
+});

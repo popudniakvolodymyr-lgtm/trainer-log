@@ -15,7 +15,7 @@ import { formatDate, today } from '../core/model.js';
 
 const homeFor = (meta) => {
   if (meta.role === 'trainer') return '#/clients';
-  if (meta.role === 'client' && meta.clientId) return `#/client/${meta.clientId}`;
+  if (meta.role === 'client' && meta.clientId) return `#/client/${encodeURIComponent(meta.clientId)}`;
   return '#/start';
 };
 
@@ -193,7 +193,7 @@ export async function openFile(ctx, { expect = null, title = 'Відкрити �
     }
     if (pkg.kind === 'backup' && meta.role) {
       const ok = await confirmDialog(
-        `Копія від ${formatDate(today(new Date(pkg.createdAt)))}. Її дані додадуться до даних цього телефона — нічого не видаляється. Продовжити?`,
+        `Копія від ${formatDate(today(new Date(pkg.createdAt)))}. Її дані об'єднаються з даними цього телефона: новіші зміни й видалення з копії замінять поточні. Продовжити?`,
         { ok: 'Відновити' });
       if (!ok) return;
     }

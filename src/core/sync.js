@@ -98,11 +98,29 @@ function checkEntities(list, extra) {
   return list.every((x) => isObj(x) && isStr(x.id) && isNum(x.updatedAt) && (!extra || extra(x)));
 }
 
+// id, що йдуть у маршрути (#/client/<id>/eq/<eqId>/<exId>) і в id налаштувань (через «|»):
+// uuid, eq-…, інші слаги програми — лише латиниця, цифри, «-» і «_». Ні «/», ні «%», ні «|».
+const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+const isId = (x) => typeof x === 'string' && SAFE_ID.test(x);
+const DATE_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+const COUNT_MIN = 1;
+const COUNT_MAX = 50;
+
+const checkExercise = (x) => isObj(x) && isId(x.id) && typeof x.name === 'string';
+const checkAdjustment = (x) => isObj(x) && isId(x.id)
+  && (x.count === undefined || x.count === null
+    || (Number.isInteger(x.count) && x.count >= COUNT_MIN && x.count <= COUNT_MAX))
+  && (x.kind !== 'positions' || x.deleted || Number.isInteger(x.count));
+
 const CHECKS = {
-  clients: (x) => x.deleted || typeof x.name === 'string',
-  equipment: (x) => x.deleted || (typeof x.name === 'string' && Array.isArray(x.exercises)),
-  sessions: (x) => isStr(x.clientId) && (x.deleted || Array.isArray(x.sets)),
-  settings: (x) => isStr(x.clientId) && isStr(x.exerciseId) && isStr(x.adjustmentId),
+  clients: (x) => isId(x.id) && (x.deleted || typeof x.name === 'string'),
+  equipment: (x) => isId(x.id) && (x.deleted || (typeof x.name === 'string' && Array.isArray(x.exercises)))
+    && (x.exercises === undefined || (Array.isArray(x.exercises) && x.exercises.every(checkExercise)))
+    && (x.adjustments === undefined || (Array.isArray(x.adjustments) && x.adjustments.every(checkAdjustment))),
+  sessions: (x) => isId(x.id) && isId(x.clientId) && isId(x.equipmentId) && isId(x.exerciseId)
+    && typeof x.date === 'string' && DATE_RE.test(x.date) && (x.deleted || Array.isArray(x.sets)),
+  settings: (x) => isId(x.clientId) && isId(x.equipmentId) && isId(x.exerciseId) && isId(x.adjustmentId)
+    && x.id === settingId(x.clientId, x.exerciseId, x.adjustmentId),
 };
 
 /** Чи приймає телефон з роллю role файл виду kind (і роль копії). → null | 'текст помилки' */
@@ -150,9 +168,13 @@ export function parsePackage(text, opts = {}) {
   if (!isNum(pkg.createdAt)) return { ok: false, error: ERR_BROKEN };
   if (pkg.kind === 'backup') {
     if (!isObj(pkg.meta) || ![null, 'trainer', 'client'].includes(pkg.meta.role ?? null)) return { ok: false, error: ERR_BROKEN };
-    if (pkg.meta.role === 'client' && !isStr(pkg.meta.clientId)) return { ok: false, error: ERR_BROKEN };
+    if (pkg.meta.role === 'client' && !isId(pkg.meta.clientId)) return { ok: false, error: ERR_BROKEN };
+    if (pkg.meta.clientId != null && !isId(pkg.meta.clientId)) return { ok: false, error: ERR_BROKEN };
     if (pkg.meta.aliases != null && !isObj(pkg.meta.aliases)) return { ok: false, error: ERR_BROKEN };
-  } else if (!isObj(pkg.client) || !isStr(pkg.client.id) || typeof pkg.client.name !== 'string') {
+    if (pkg.meta.aliases && !Object.entries(pkg.meta.aliases).every(([k, v]) => isId(k) && isId(v))) {
+      return { ok: false, error: ERR_BROKEN };
+    }
+  } else if (!isObj(pkg.client) || !isId(pkg.client.id) || typeof pkg.client.name !== 'string') {
     return { ok: false, error: ERR_BROKEN };
   }
   for (const k of ENTITY_KINDS) {
@@ -294,7 +316,8 @@ export function applyImport(pkg, state, { targetClientId = null, now = Date.now(
     if (!toId) throw new Error('Виберіть картку клієнта для цього файлу');
     if (toId !== fromId && !liveClient(state, toId)) throw new Error('Вибраної картки клієнта немає');
     const sessions = ofClient(pkg.sessions, fromId).map((s) => (toId === fromId ? s : remapSession(s, toId)));
-    const settings = ofClient(pkg.settings, fromId).map((s) => (toId === fromId ? s : remapSetting(s, toId)));
+    // id налаштування завжди перераховується: файл не може підмінити чуже налаштування.
+    const settings = ofClient(pkg.settings, fromId).map((s) => remapSetting(s, toId));
     if (toId === fromId) {
       const inc = findById(pkg.clients, fromId) || { id: fromId, name: pkg.client.name, updatedAt: 0 };
       const cur = findById(work.clients, fromId);

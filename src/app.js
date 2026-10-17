@@ -31,7 +31,7 @@ export const routes = [
 /** Головний екран ролі. */
 export function homeFor(meta) {
   if (meta.role === 'trainer') return '#/clients';
-  if (meta.role === 'client' && meta.clientId) return `#/client/${meta.clientId}`;
+  if (meta.role === 'client' && meta.clientId) return `#/client/${encodeURIComponent(meta.clientId)}`;
   return '#/start';
 }
 
@@ -50,6 +50,12 @@ function match(hash) {
     return { route: r, params };
   }
   return null;
+}
+
+/** Запасний екран, коли домашній маршрут ролі не розпізнано. */
+function fallbackFor(meta) {
+  const name = meta.role === 'trainer' || meta.role === 'client' ? 'settings' : 'start';
+  return { route: routes.find((r) => r.name === name), params: {} };
 }
 
 let store = null;
@@ -94,7 +100,9 @@ async function render() {
       return;
     }
   }
-  const { route, params } = denied ? match(home) : found;
+  // Домашній маршрут може не збігтися (битий id у даних) — тоді налаштування або старт, а не порожній екран.
+  const target = (denied ? match(home) : found) || fallbackFor(meta);
+  const { route, params } = target;
 
   // Екран малюється в окремий корінь; у #view він потрапляє, лише якщо за час
   // await не почався новіший рендер (інакше застарілий результат відкидається).

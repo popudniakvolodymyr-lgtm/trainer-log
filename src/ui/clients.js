@@ -4,6 +4,7 @@
 import { h, mount, sheet, toast, confirmDialog } from './dom.js';
 import { uuid } from '../core/model.js';
 import { deleteClient } from './log-data.js';
+import { backupBanner } from './exchange.js';
 
 const NAME_MAX = 60;
 
@@ -65,9 +66,12 @@ export async function renderClients(container, ctx) {
     },
   });
 
+  const banner = await backupBanner(ctx);
+
   if (!clients.length) {
     mount(container, h('div', { class: 'screen' },
       h('h1', null, 'Клієнти'),
+      banner,
       h('div', { class: 'card empty-state' },
         h('h2', null, 'Додайте першого клієнта'),
         h('p', { class: 'muted' }, 'Для кожного клієнта ведуться записи підходів, графіки і налаштування тренажерів.'),
@@ -139,6 +143,7 @@ export async function renderClients(container, ctx) {
 
   mount(container, h('div', { class: 'screen has-bar' },
     h('h1', null, 'Клієнти'),
+    banner,
     search,
     list,
     noMatch,
