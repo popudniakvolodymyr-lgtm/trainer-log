@@ -3,8 +3,9 @@
 //   { id, ADJUSTMENTS, HINTS, art({exerciseId, mini}) → SVG, MARKERS: (exerciseId) → {[adjId]: {x, y}}, PICKERS? }
 // На малюнку лише тренажер і людина; мітки регулювань домальовує renderScheme за MARKERS.
 // Без регулювань: leg-press, seated-leg-press, hip-adduction, hip-abduction, hack-squat.
-// З регулюваннями (позиції 1…5, ⚠ приблизно): leg-curl (валик по колу шарніра — коло у PICKERS),
-// leg-extension (валік — нижній шарнір, нахил — верхній шарнір важеля, спинка вперед-назад).
+// З регулюваннями (позиції 1…5, ⚠ приблизно): leg-curl (важіль — диск на осі, валік — диск біля валика),
+// leg-extension (валік — нижній диск, нахил — верхній диск важеля, спинка — повзун на трубі під сидінням).
+// Вікна вибору: диск з отворами 1…5 по колу і жовтим фіксатором на вибраному (holeDisk), спинка — труба з поділками.
 //
 // Малюємо невеликим «3D»: світ у сантиметрах (X — уперед/вздовж тренажера, Y — угору, Z — убік),
 // ортографічна камера з поворотом (yaw) і нахилом згори (pitch), грані й деталі сортуються за глибиною.
@@ -54,6 +55,7 @@ export const P = {
   skin: '#e2b593',
   shoe: '#eef1f2', // світлі кросівки — видно на чорних деталях
   hair: '#3b2d24',
+  yellow: '#f5c518', // фіксатори (pop-pin) Impulse
 };
 
 // --- камера й сцена -----------------------------------------------------------------------
@@ -247,6 +249,24 @@ export function cyl(S, a, b, r, color, { cap = null, rings = [], hub = 0, dz = 0
 export function plate(S, c, axis, r, t, color = P.plate) {
   const d = mul(unit(axis), t / 2);
   cyl(S, sub(c, d), add(c, d), r, color, { rings: S.mini ? [] : [0.82, 0.42], hub: r * 0.22 });
+}
+
+/**
+ * Диск регулювання з отворами по колу (за фото Impulse): центр c, вісь axis (на глядача — бік +Z), радіус r.
+ * angles — кути отворів у площині XY (градуси, 0 — уперед +X, 90 — угору); pin — індекс отвору з жовтим фіксатором.
+ * metal — світле кільце з темними отворами (диск біля валика), інакше чорний диск зі світлими отворами.
+ * → центр лицьового боку (для мітки).
+ */
+export function holeDisk(S, c, r, angles, { pin = -1, metal = false, t = 3, dz = 0 } = {}) {
+  const face = add(c, [0, 0, t / 2]);
+  cyl(S, sub(c, [0, 0, t / 2]), face, r, metal ? P.metal : P.dark, { hub: r * 0.24, rings: S.mini ? [] : [metal ? 0.92 : 0.9], dz });
+  if (S.mini) return face;
+  angles.forEach((deg, i) => {
+    const p = add(face, [Math.cos(rad(deg)) * r * 0.68, Math.sin(rad(deg)) * r * 0.68, 0.4]);
+    if (i === pin) sphere(S, add(p, [0, 0, 1.2]), Math.max(1.8, r * 0.13), P.yellow, { dz: dz + 2 });
+    else sphere(S, p, Math.max(1.1, r * 0.08), metal ? '#22282a' : P.metal, { stroke: false, dz: dz + 1 });
+  });
+  return face;
 }
 
 /** Куля (голова, кисть, ручка). */
@@ -687,53 +707,58 @@ const hackSquat = artModule({
 });
 
 // ======================================================================
-// 6. Згинання ніг лежачи (eq-07, leg-curl): VNK — стійка з вагою біля голови, лава з двох подушок,
-// ручки внизу, круглий шарнір біля колін з важелем і валиком на ахіллах. Позиції валика по колу — у PICKERS.
+// 6. Згинання ніг лежачи (eq-07, leg-curl), за фото Impulse prone leg curl: стійка з вагою біля голови,
+// рівна лава (одна подушка), ручки під грудьми; біля колін — диск з отворами на осі важеля («Важіль»),
+// на кінці важеля — кільце з отворами біля валика («Валік»). Позиції по колу — у PICKERS.
 // ======================================================================
-const LC_HINTS = { roller: { first: 'найнижче', last: 'найвище' } };
-// Кут відхилення важеля від горизонталі: позиція k → −56°…+56° (плюс — вище).
+const LC_HINTS = {
+  lever: { first: 'найнижче', last: 'найвище' },
+  roller: { first: 'найнижче', last: 'найвище' },
+};
+// Кут відхилення від горизонталі: позиція k → −56°…+56° (плюс — вище).
 const curlAngle = (k, n) => (k - (n + 1) / 2) * (112 / Math.max(n - 1, 1));
+const curlHoles = (n = 5) => Array.from({ length: n }, (_, i) => 180 - curlAngle(i + 1, n));
 
 const legCurl = artModule({
   id: 'leg-curl',
-  label: 'Схема тренажера «Згинання ніг лежачи»',
-  ADJUSTMENTS: ['roller'],
+  label: 'Схема тренажера «Згинання ніг лежачи»: диск важеля біля колін і диск валика',
+  ADJUSTMENTS: ['lever', 'roller'],
   HINTS: LC_HINTS,
   view: [22, 38],
   build(S) {
     baseFrame(S, -46, 132, 20, [-42, 30, 128]);
     stackTower(S, [102, 0, -27], [134, 150, 27], 'x-');
-    // лава: подушка під стегна (вища) і під груди (нижча)
-    pad(S, [-24, 66, 0], [38, 66, 0], [0, 1, 0], 17, 5);
-    pad(S, [46, 55, 0], [82, 52, 0], unit([3, 36, 0]), 16, 5);
-    for (const x of [0, 62]) beam(S, [x, 3, 0], [x, x ? 48 : 60, 0], 8, 8, P.frame);
-    beam(S, [-10, 58, 0], [70, 46, 0], 6, 6, P.frame);
-    // ручки під грудьми
-    beam(S, [62, 30, 0], [62, 3, 0], 6, 6, P.frame);
-    beam(S, [64, 34, -24], [64, 34, 24], 5, 5, P.orange);
-    if (!S.mini) for (const z of [-24, 24]) tube(S, [64, 34, z], [70, 46, z], 4.6, P.dark);
-    // круглий шарнір біля колін, важіль і валик
-    const hinge = [-27, 80, 25];
-    beam(S, [-12, 60, 16], [hinge[0], hinge[1], 20], 6, 6, P.frame);
-    cyl(S, add(hinge, [0, 0, -4]), add(hinge, [0, 0, 3]), 15, P.dark, { rings: S.mini ? [] : [0.62], hub: 3.5 });
-    if (!S.mini) {
-      for (let k = 1; k <= 5; k++) {
-        const a = rad(180 - curlAngle(k, 5));
-        sphere(S, add(hinge, [Math.cos(a) * 9.3, Math.sin(a) * 9.3, 3.4]), 1.4, P.metal, { stroke: false, dz: 1 });
-      }
-    }
-    const roller = [-66, 90.5, 25];
-    beam(S, add(hinge, [0, 0, 4]), add(roller, [0, 0, 4]), 6, 6, P.orange);
-    cyl(S, [roller[0], roller[1], -22], [roller[0], roller[1], 29], 7, P.pad, { cap: shade(P.pad, 0.2) });
-    mark(S, 'roller', add(hinge, [0, 0, 3]));
+    // лава: одна рівна подушка від колін до грудей
+    pad(S, [-24, 64, 0], [80, 64, 0], [0, 1, 0], 17, 5);
+    for (const x of [-2, 62]) beam(S, [x, 3, 0], [x, 58, 0], 8, 8, P.frame);
+    beam(S, [-14, 57, 0], [74, 57, 0], 7, 5, P.frame);
+    // ручки під передом лави
+    beam(S, [70, 57, 0], [74, 36, 0], 6, 6, P.frame);
+    beam(S, [74, 36, -24], [74, 36, 24], 5, 5, P.frame);
+    if (!S.mini) for (const z of [-24, 24]) tube(S, [74, 36, z], [80, 48, z], 4.6, P.orange);
+    // вісь важеля біля колін: кронштейн від рами, диск з отворами («Важіль»)
+    const hinge = [-27, 79, 25];
+    beam(S, [-12, 57, 18], [hinge[0], hinge[1], 21], 6, 6, P.frame);
+    const leverFace = holeDisk(S, hinge, 19, curlHoles(), { pin: 2, t: 6, dz: 20 });
+    // важіль до валика й кільце з отворами біля валика («Валік»)
+    const roller = [-66, 90, 25];
+    beam(S, add(hinge, [0, 0, -6]), add(roller, [0, 0, -6]), 6, 6, P.orange); // за диском, як на фото
+    cyl(S, [roller[0], roller[1], -22], [roller[0], roller[1], 24], 7, P.pad, { cap: shade(P.pad, 0.2) });
+    const rollerFace = holeDisk(S, add(roller, [0, 0, 6.5]), 13, curlHoles().map((d) => d + 180), { pin: 2, metal: true, t: 3 });
+    if (!S.mini) sphere(S, [roller[0], roller[1], -23.5], 2.4, P.yellow);
+    mark(S, 'lever', leverFace);
+    mark(S, 'roller', rollerFace);
     // людина лежить на животі, ахіли під валиком
     person(S, {
-      pelvis: [16, 82, 0], neck: [64, 70, 0], face: [0.85, -0.5, 0],
-      leg: { ankle: [-68, 78.5, 9.5], toe: [-71, 68, 10], knee: [0, 1, 0] },
-      arm: { hand: [70, 41, 25], elbow: [-0.7, 0.1, 1] },
+      pelvis: [16, 79, 0], neck: [66, 79, 0], face: [0.7, -0.7, 0],
+      leg: { ankle: [-68, 77.5, 9.5], toe: [-71, 67, 10], knee: [0, 1, 0] },
+      arm: { hand: [80, 47, 24], elbow: [-0.5, 0.1, 1] },
     });
   },
-  PICKERS: { roller: curlPicker },
+  PICKERS: {
+    lever: (v, adj) => curlPicker('lever', v, adj),
+    roller: (v, adj) => curlPicker('roller', v, adj),
+  },
 });
 
 // --- PICKERS: наочність у вікні вибору ----------------------------------------------------
@@ -753,26 +778,67 @@ const thick = (a, b, w, color, extra = {}) => el('line', {
 const ghost = (a, b, w = 7) => thick(a, b, w, '#d5dcd9');
 const note = (x, y, s, anchor = 'start') => text(x, y, s, { 'font-size': 13, fill: C.muted, 'text-anchor': anchor });
 
-/** Згинання ніг: диск шарніра збоку, отвори 1…N по колу, важіль з валиком дивиться на вибраний. */
-function curlPicker(value, adj) {
+/**
+ * Диск з отворами у вікні вибору (W1, W3): отвори 1…N по колу — кнопки; на вибраному — жовтий фіксатор.
+ * D — центр, r — радіус диска, hr — радіус кола отворів, angle(k) — кут отвору k (градуси, 90 — угору),
+ * metal — світле кільце (диск біля валика), інакше чорний диск. → { parts, holes }
+ */
+function pickDisk(D, r, hr, n, sel, angle, { metal = false } = {}) {
+  const parts = [el('circle', {
+    cx: D[0], cy: D[1], r, fill: metal ? '#cdd4d7' : P.dark, stroke: metal ? '#6f7c82' : '#15191b', 'stroke-width': 3,
+    'data-dial-center': `${D[0]},${D[1]}`,
+  })];
+  parts.push(el('circle', { cx: D[0], cy: D[1], r: r - 7, fill: 'none', stroke: metal ? '#aeb7bb' : '#454c50', 'stroke-width': 1.5 }));
+  const holes = [];
+  const rr = n > 6 ? 10 : 13;
+  for (let k = 1; k <= n; k++) {
+    const [x, y] = p2(D, angle(k), hr);
+    const on = sel === k;
+    holes.push(el('g', { 'data-pick': k, class: on ? 'pick-dot is-on' : 'pick-dot' },
+      (on
+        ? el('circle', { cx: x, cy: y, r: rr + 4, fill: P.yellow, stroke: '#7a5c00', 'stroke-width': 3 })
+        : el('circle', { cx: x, cy: y, r: rr, fill: '#14191b', stroke: metal ? '#7d898d' : '#aeb7bb', 'stroke-width': 2.5 }))
+      + text(x, y + 5, k, { 'font-size': on ? 17 : 14, 'font-weight': on ? 800 : 700, 'text-anchor': 'middle', fill: on ? '#1d1a0a' : '#ffffff' })));
+  }
+  return { parts, holes };
+}
+const hub = (D, r = 11) => el('circle', { cx: D[0], cy: D[1], r, fill: P.metal, stroke: '#6f7c82', 'stroke-width': 2.5 });
+/** Валик з торця; on=false — блідий (нічого не вибрано). */
+const rollerEnd = (c, r, on = true) => el('circle', { cx: c[0], cy: c[1], r, fill: on ? P.pad : '#dfe5e2', stroke: on ? '#111' : '#c8d0cd', 'stroke-width': 1.5 })
+  + (on ? el('circle', { cx: c[0], cy: c[1], r: r1(r * 0.3), fill: '#5b6467' }) : '');
+
+/**
+ * Згинання ніг (W1). «Важіль» — чорний диск на осі біля колін, важіль з валиком проходить через вибраний отвір.
+ * «Валік» — світле кільце з отворами на кінці важеля, валик на короткому плечі навпроти вибраного отвору.
+ * Отвори по колу ліворуч: 1 — найнижче, N — найвище.
+ */
+function curlPicker(which, value, adj) {
   const n = adj.count;
   const sel = picked(adj, value);
-  const D = [222, 120];
+  const ang = (k) => 180 - curlAngle(k, n);
   const parts = [];
-  parts.push(el('circle', { cx: D[0], cy: D[1], r: 82, fill: '#e3e8e6', stroke: '#6f7c82', 'stroke-width': 3, 'data-dial-center': `${D[0]},${D[1]}` }));
-  if (sel) {
-    const tip = p2(D, 180 - curlAngle(sel, n), 112);
-    parts.push(thick(D, tip, 12, P.orange));
-    parts.push(el('circle', { cx: tip[0], cy: tip[1], r: 17, fill: P.pad, stroke: '#111', 'stroke-width': 1.5 }));
+  if (which === 'lever') {
+    const D = [214, 120];
+    const disk = pickDisk(D, 84, 60, n, sel, ang);
+    parts.push(...disk.parts);
+    const tip = p2(D, sel ? ang(sel) : 180, 112);
+    parts.push(sel ? thick(D, tip, 14, P.orange) : ghost(D, tip, 12));
+    parts.push(rollerEnd(tip, 18, !!sel));
+    parts.push(hub(D), ...disk.holes);
   } else {
-    parts.push(ghost(D, p2(D, 180, 112), 10));
-    parts.push(el('circle', { cx: D[0] - 112, cy: D[1], r: 15, fill: '#dfe5e2' }));
+    const R = [204, 118];
+    parts.push(thick(R, [340, 168], 18, P.orange)); // важіль від осі біля колін
+    const disk = pickDisk(R, 80, 58, n, sel, ang, { metal: true });
+    parts.push(...disk.parts);
+    const tip = p2(R, sel ? ang(sel) : 180, 104);
+    parts.push(sel ? thick(R, tip, 11, P.dark) : ghost(R, tip, 10));
+    parts.push(rollerEnd(tip, 22, !!sel));
+    parts.push(hub(R, 10), ...disk.holes);
   }
-  parts.push(el('circle', { cx: D[0], cy: D[1], r: 9, fill: P.metal, stroke: '#6f7c82', 'stroke-width': 2 }));
-  for (let k = 1; k <= n; k++) parts.push(pickDot(k, p2(D, 180 - curlAngle(k, n), 60), sel === k, n > 6 ? 10 : 12));
-  parts.push(note(12, 24, `${n} — ${LC_HINTS.roller.last}`));
-  parts.push(note(12, 226, `1 — ${LC_HINTS.roller.first}`));
-  return pickerRoot(320, 240, `${adj.label}: позиції по колу шарніра`, parts.join(''));
+  const h = LC_HINTS[which];
+  parts.push(note(12, 24, `${n} — ${h.last}`));
+  parts.push(note(12, 228, `1 — ${h.first}`));
+  return pickerRoot(320, 240, `${adj.label}: диск з отворами, позиції 1…${n}`, parts.join(''));
 }
 
 // ======================================================================
@@ -782,7 +848,7 @@ function curlPicker(value, adj) {
 const LE_HINTS = {
   roller: { first: 'ближче до коліна', last: 'ближче до стопи' },
   tilt: { first: 'менший нахил', last: 'більший нахил' },
-  backrest: { first: 'ближче до валика', last: 'далі від валика' },
+  backrest: { first: 'ближче до валика (коротші ноги)', last: 'далі (довші ноги)' },
 };
 
 const legExtension = artModule({
@@ -798,7 +864,7 @@ const legExtension = artModule({
     // сидіння
     beam(S, [10, 3, 0], [10, 42, 0], 9, 9, P.frame);
     pad(S, [-14, 47, 0], [34, 47, 0], [0, 1, 0], 21);
-    // спинка на повзуні: рейка під сидінням, стійка спинки
+    // спинка на повзуні: труба під сидінням, повзун з жовтою ручкою-фіксатором, стійка спинки
     const pelvis = [-6, 62, 0];
     const neck = [-15, 111, 0];
     const spine = unit(sub(neck, pelvis));
@@ -811,26 +877,31 @@ const legExtension = artModule({
     beam(S, [-29, 34, 0], add(bA, mul(front, -6)), 6, 6, P.frame);
     beam(S, add(bA, mul(front, -6)), add(bB, add(mul(front, -6), mul(spine, -10))), 5, 5, P.frame);
     if (!S.mini) {
-      tube(S, [-29, 31, 7], [-29, 31, 15], 3.2, P.orange);
+      tube(S, [-29, 31, 7], [-25, 31, 17], 3.4, P.yellow);
       for (const z of [-28, 28]) {
         beam(S, [12, 40, z * 0.8], [12, 52, z], 4, 4, P.frame);
         tube(S, [-6, 55, z], [24, 54, z], 4.5, P.dark);
       }
     }
-    // важіль на боці +Z: верхній шарнір (кулачок) біля коліна, нижній шарнір біля валика
+    // важіль на боці +Z (за фото Impulse): верхній диск з отворами біля коліна («Нахил»),
+    // нижче на важелі — світле кільце з отворами («Валік»), на кінці — валик перед гомілками
     const cam = [39, 59, 27];
-    const low = [55, 24, 27];
-    beam(S, [24, 42, 21], cam, 6, 6, P.frame);
-    cyl(S, add(cam, [0, 0, -3]), add(cam, [0, 0, 4]), 11, P.dark, { hub: 3 });
-    beam(S, add(cam, [0, 0, 4]), add(low, [0, 0, 4]), 7, 6, P.orange);
-    cyl(S, add(low, [0, 0, 1]), add(low, [0, 0, 7]), 4.6, P.dark, { hub: 1.6 });
-    cyl(S, [low[0], low[1], -20], [low[0], low[1], 26], 7, P.pad, { cap: shade(P.pad, 0.2) });
-    mark(S, 'tilt', add(cam, [0, 0, 4]));
-    mark(S, 'roller', add(low, [0, 0, 7]));
+    const low = [52, 30, 27];
+    const roll = [56, 21, 27];
+    beam(S, [24, 42, 21], add(cam, [0, 0, -4]), 6, 6, P.frame);
+    const tiltFace = holeDisk(S, cam, 11, [-150, -125, -100, -75, -50], { pin: 2, t: 7 });
+    // важіль — за дисками (диски на зовнішньому боці, як на фото)
+    beam(S, add(cam, [0, 0, -6]), add(low, [0, 0, -6]), 7, 6, P.orange);
+    beam(S, add(low, [0, 0, -6]), add(roll, [0, 0, -6]), 5, 5, P.orange);
+    cyl(S, add(low, [0, 0, -6]), add(low, [0, 0, 2]), 2, P.metal);
+    const rollFace = holeDisk(S, add(low, [0, 0, 3]), 6.5, [150, 185, 220, 255, 290], { pin: 1, metal: true, t: 2.5 });
+    cyl(S, [roll[0], roll[1], -20], [roll[0], roll[1], 24], 7, P.pad, { cap: shade(P.pad, 0.2) });
+    mark(S, 'tilt', tiltFace);
+    mark(S, 'roller', rollFace);
     mark(S, 'backrest', add(mid(bA, bB), add(mul(front, -5), [0, 0, 20])));
     person(S, {
       pelvis, neck, face: [1, -0.1, 0],
-      leg: { ankle: [43, 18, 10], toe: [49, 8, 11], knee: [1, 0.3, 0] },
+      leg: { ankle: [44, 17, 10], toe: [50, 7, 11], knee: [1, 0.3, 0] },
       arm: { hand: [8, 56, 28], elbow: [-0.5, -0.3, 1] },
     });
   },
@@ -841,51 +912,71 @@ const legExtension = artModule({
   },
 });
 
-/** Розгинання ніг збоку: сидіння, спинка, важіль; підсвічена деталь регулювання і позиції 1…N. */
+/** Стрілка ↔ по горизонталі від x0 до x1 (з підказкою title). */
+function arrowLR(x0, x1, y, color = C.accent) {
+  const head = (x, d) => el('path', { d: `M${x} ${y}l${d * 11} -7v14z`, fill: color, stroke: '#ffffff', 'stroke-width': 1.5, 'stroke-linejoin': 'round' });
+  return el('g', { class: 'pick-arrow' }, `<title>↔ вперед-назад</title>`
+    + thick([x0 + 8, y], [x1 - 8, y], 7, '#ffffff') + thick([x0 + 8, y], [x1 - 8, y], 4, color) + head(x0, 1) + head(x1, -1));
+}
+
+/**
+ * Розгинання ніг (W3). «Нахил» — чорний диск біля коліна, важіль з валиком через вибраний отвір;
+ * «Валік» — світле кільце нижче на важелі, валик на плечі навпроти вибраного отвору;
+ * «Спинка» — збоку: сидіння, під ним труба з поділками 1…N, спинка на вибраній поділці з жовтим фіксатором, ↔.
+ */
 function extPicker(which, value, adj) {
   const n = adj.count;
   const sel = picked(adj, value);
   const f = (k) => (k - 1) / Math.max(n - 1, 1);
+  const h = LE_HINTS[which];
   const parts = [];
-  const knee = [176, 84];
-  // сидіння, стійка, рейка спинки
-  parts.push(thick([182, 96], [262, 96], 16, P.pad));
-  parts.push(thick([222, 104], [222, 204], 10, P.frame));
-  parts.push(thick([200, 206], [372, 206], 8, P.frame));
-  // спинка: позиції вздовж рейки (1 — ближче до валика)
-  const backX = (k) => 270 + f(k) * 92;
-  const bk = which === 'backrest' ? sel : Math.ceil(n / 2);
-  if (which === 'backrest') for (let k = 1; k <= n; k++) if (k !== sel) parts.push(ghost([backX(k), 88], [backX(k) + 12, 18], 10));
-  if (bk) parts.push(thick([backX(bk) + 4, 96], [backX(bk) + 4, 202], 7, P.frame) + thick([backX(bk), 88], [backX(bk) + 12, 18], 15, P.pad));
-  // стегно
-  parts.push(thick([258, 82], knee, 18, '#c3ccd6'));
-  // важіль: верхній шарнір біля коліна; нахил — кут усього важеля (1 — ближче до вертикалі)
-  const tiltDeg = (k) => -96 - f(k) * 44;
-  const tk = which === 'tilt' ? sel : 1;
-  const leverDeg = tk ? tiltDeg(tk) : -96;
-  const L = which === 'tilt' ? 100 : 132;
-  parts.push(thick(knee, p2(knee, -92, 104), 14, '#c3ccd6')); // гомілка
-  if (which === 'tilt') for (let k = 1; k <= n; k++) if (k !== sel) parts.push(ghost(knee, p2(knee, tiltDeg(k), L), 6));
-  if (which !== 'tilt' || sel) parts.push(thick(knee, p2(knee, leverDeg, L), 9, P.orange));
-  parts.push(el('circle', { cx: knee[0], cy: knee[1], r: 14, fill: P.dark, stroke: '#6f7c82', 'stroke-width': 2.5 }));
-  // валик: позиції вздовж нижньої частини важеля (1 — ближче до коліна)
-  const rollerAt = (k) => p2(knee, leverDeg, L * (0.42 + 0.55 * f(k)));
-  const rk = which === 'roller' ? sel : n;
-  if (rk) {
-    const rc = rollerAt(rk);
-    parts.push(el('circle', { cx: r1(rc[0] - 13), cy: rc[1], r: 12, fill: P.pad, stroke: '#111', 'stroke-width': 1.5 }));
+  if (which === 'tilt') {
+    const D = [220, 112];
+    parts.push(thick([350, 100], D, 22, '#c3ccd6')); // стегно на сидінні — до осі біля коліна
+    const ang = (k) => -80 - f(k) * 90; // 1 — майже прямовисно, N — далі вперед
+    const disk = pickDisk(D, 88, 70, n, sel, ang);
+    parts.push(...disk.parts);
+    const tip = p2(D, sel ? ang(sel) : -80, 124);
+    parts.push(sel ? thick(D, tip, 14, P.orange) : ghost(D, tip, 12));
+    parts.push(rollerEnd(tip, 18, !!sel));
+    parts.push(hub(D, 12), ...disk.holes);
+    parts.push(note(12, 22, `1 — ${h.first}`), note(12, 40, `${n} — ${h.last}`));
+    return pickerRoot(340, 258, `${adj.label}: диск з отворами, позиції 1…${n}`, parts.join(''));
   }
   if (which === 'roller') {
-    for (let k = 1; k <= n; k++) parts.push(pickDot(k, rollerAt(k), sel === k, 8.5));
-  } else if (which === 'tilt') {
-    for (let k = 1; k <= n; k++) parts.push(pickDot(k, p2(knee, tiltDeg(k), L + 22), sel === k, 10));
-  } else {
-    for (let k = 1; k <= n; k++) parts.push(pickDot(k, [r1(backX(k) + 4), 206], sel === k, 10));
+    const R = [186, 124];
+    parts.push(thick([350, 4], R, 18, P.orange)); // важіль від верхнього диска біля коліна
+    const ang = (k) => 160 + f(k) * 100; // 1 — вище, ближче до коліна; N — нижче, ближче до стопи
+    const disk = pickDisk(R, 80, 58, n, sel, ang, { metal: true });
+    parts.push(...disk.parts);
+    const tip = p2(R, sel ? ang(sel) : 210, 108);
+    parts.push(sel ? thick(R, tip, 11, P.dark) : ghost(R, tip, 10));
+    parts.push(rollerEnd(tip, 22, !!sel));
+    parts.push(hub(R, 10), ...disk.holes);
+    parts.push(note(12, 22, `1 — ${h.first}`), note(12, 40, `${n} — ${h.last}`));
+    return pickerRoot(340, 258, `${adj.label}: диск з отворами, позиції 1…${n}`, parts.join(''));
   }
-  const h = LE_HINTS[which];
-  parts.push(note(12, 22, `1 — ${h.first}`));
-  parts.push(note(12, 40, `${n} — ${h.last}`));
-  return pickerRoot(384, 232, `${adj.label}: позиції 1…${n}`, parts.join(''));
+  // спинка: валик ліворуч, сидіння, під ним труба з поділками; спинка їздить по трубі
+  const knee = [70, 122];
+  const foot = p2(knee, -98, 92);
+  parts.push(thick([30, 240], [346, 240], 8, P.frame)); // рама на підлозі
+  parts.push(thick([150, 132], [150, 238], 10, P.frame)); // стійка сидіння
+  parts.push(thick(knee, foot, 10, P.orange), rollerEnd(foot, 17));
+  parts.push(el('circle', { cx: knee[0], cy: knee[1], r: 11, fill: P.dark, stroke: '#6f7c82', 'stroke-width': 2 }));
+  parts.push(thick([84, 122], [184, 122], 18, P.pad)); // сидіння
+  const tubeY = 156;
+  const tx = (k) => r1(198 + f(k) * 112);
+  parts.push(thick([140, tubeY], [334, tubeY], 9, '#9aa4a8'));
+  for (let k = 1; k <= n; k++) parts.push(thick([tx(k), tubeY - 10], [tx(k), tubeY + 10], 2.5, '#4b5558'));
+  const x = tx(sel || Math.ceil(n / 2));
+  parts.push(thick([x, tubeY], [x + 8, 130], 8, sel ? P.frame : '#c8d0cd'));
+  parts.push(thick([x + 4, 132], [x + 24, 52], 18, sel ? P.pad : '#dfe5e2'));
+  parts.push(el('rect', { x: x - 12, y: tubeY - 9, width: 24, height: 18, rx: 4, fill: sel ? P.dark : '#c8d0cd' }));
+  if (sel) parts.push(el('circle', { cx: x, cy: tubeY + 16, r: 7, fill: P.yellow, stroke: '#7a5c00', 'stroke-width': 2 }));
+  parts.push(arrowLR(x - 24, x + 46, 96));
+  for (let k = 1; k <= n; k++) parts.push(pickDot(k, [tx(k), 208], sel === k, n > 6 ? 10 : 12));
+  parts.push(note(12, 22, `1 — ${h.first}`), note(12, 40, `${n} — ${h.last}`));
+  return pickerRoot(360, 252, `${adj.label}: поділки на трубі під сидінням, позиції 1…${n}`, parts.join(''));
 }
 
 export const SCHEMES = [

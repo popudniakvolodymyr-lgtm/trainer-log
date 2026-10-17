@@ -5,8 +5,8 @@ import { SCHEMES as LEGS } from '../src/schemes/legs.js';
 import { SCHEMES, schemeFor } from '../src/schemes/registry.js';
 import { schemeSvg, schemeMarkers, pickerArt, equipmentIcon } from '../src/schemes/index.js';
 
-// Очікування — зі spec.md («Правки, друга черга» Q2–Q4, Q7), interfaces.md («T05 — каталог правок»,
-// «T08 — каркас схем») і брифу автора, не з коду під тестом.
+// Очікування — зі spec.md («Правки, друга черга» Q2–Q4, Q7; «Правки, третя черга» W1, W3), interfaces.md
+// («T05 — каталог правок», «T08 — каркас схем», «T11 — дані третьої черги») і брифу автора, не з коду під тестом.
 const catalog = seedEquipment();
 const byId = Object.fromEntries(catalog.map((e) => [e.id, e]));
 const active = (eq) => eq.adjustments.filter((a) => !a.deleted);
@@ -18,7 +18,7 @@ const LEG_MACHINES = {
   'eq-04': ['leg-press', []],
   'eq-05': ['seated-leg-press', []],
   'eq-06': ['hip-adduction', []],
-  'eq-07': ['leg-curl', ['roller']],
+  'eq-07': ['leg-curl', ['lever', 'roller']],
   'eq-08': ['hack-squat', []],
   'eq-09': ['hip-abduction', []],
   'eq-10': ['leg-extension', ['roller', 'tilt', 'backrest']],
@@ -142,26 +142,46 @@ function picks(svg) {
     .map((m) => ({ pick: Number(m[1]), on: /is-on/.test(m[0].split('>')[0]), cx: Number(m[3]), cy: Number(m[4]) }));
 }
 
-test('Згинання ніг лежачи: у вікні вибору — позиції валика 1…N по колу шарніра, вибрана підсвічена', () => {
-  const adj = active(byId['eq-07']).find((a) => a.id === 'roller');
-  const m = mod('leg-curl');
-  const svg = pickerArt(m, adj, 4);
-  assert.match(svg, /^<svg[\s>][\s\S]*<\/svg>$/);
-  assert.ok(tagsBalanced(svg));
-  const p = picks(svg);
-  assert.deepEqual(p.map((x) => x.pick), [1, 2, 3, 4, 5]);
-  assert.deepEqual(p.filter((x) => x.on).map((x) => x.pick), [4], 'підсвічено лише вибрану');
+/** Позиції лежать на одному колі навколо data-dial-center (диск з отворами); повертає радіуси. */
+function onDial(svg, p, what) {
   const c = /data-dial-center="([\d.-]+),([\d.-]+)"/.exec(svg);
-  assert.ok(c, 'є центр круглого шарніра');
+  assert.ok(c, `${what}: є центр диска з отворами`);
   const radii = p.map((x) => Math.hypot(x.cx - Number(c[1]), x.cy - Number(c[2])));
-  for (const r of radii) assert.ok(Math.abs(r - radii[0]) < 0.6, 'позиції на одному колі');
-  assert.equal(new Set(p.map((x) => `${x.cx},${x.cy}`)).size, 5, 'усі в різних місцях');
-  // 1 — найнижче, 5 — найвище (SVG: менше y — вище)
-  assert.ok(p[4].cy < p[0].cy, '5 вище за 1');
-  // нічого не вибрано — нічого не підсвічено; тренер змінив кількість позицій — стільки ж кнопок
-  assert.deepEqual(picks(pickerArt(m, adj, undefined)).filter((x) => x.on), []);
-  assert.notEqual(pickerArt(m, adj, 1), svg, 'інше значення — інше положення важеля');
-  assert.equal(picks(pickerArt(m, { ...adj, count: 7 }, 2)).length, 7);
+  for (const r of radii) assert.ok(Math.abs(r - radii[0]) < 0.6, `${what}: отвори на одному колі`);
+  assert.equal(new Set(p.map((x) => `${x.cx},${x.cy}`)).size, p.length, `${what}: усі отвори в різних місцях`);
+  for (let i = 1; i < p.length; i++) {
+    assert.ok(Math.hypot(p[i].cx - p[i - 1].cx, p[i].cy - p[i - 1].cy) >= 24, `${what}: сусідні отвори не злипаються (палець)`);
+  }
+}
+
+test('Згинання ніг лежачи (W1): дві мітки — важіль на диску осі, валік на диску біля валика', () => {
+  const eq = byId['eq-07'];
+  const mk = schemeMarkers(mod('leg-curl'), exOf(eq));
+  assert.ok(Math.hypot(mk.lever.x - mk.roller.x, mk.lever.y - mk.roller.y) > 27, 'мітки не налазять одна на одну');
+  // валик — на кінці важеля, далі від лави (за колінами), вісь важеля — біля колін
+  assert.ok(mk.roller.x < mk.lever.x, 'валік далі від голови, ніж вісь важеля');
+  const svg = schemeSvg(mod('leg-curl'), eq, exOf(eq), { lever: 2 });
+  assert.match(svg, /data-marker="lever"[^>]*data-value="2"[^>]*class="[^"]*is-set/);
+  assert.match(svg, /data-marker="roller"[^>]*class="[^"]*is-empty/);
+});
+
+test('Згинання ніг лежачи (W1): «Важіль» і «Валік» — диски з отворами 1…N по колу, вибраний підсвічено', () => {
+  const m = mod('leg-curl');
+  for (const adj of active(byId['eq-07'])) {
+    const svg = pickerArt(m, adj, 4);
+    assert.match(svg, /^<svg[\s>][\s\S]*<\/svg>$/, adj.id);
+    assert.ok(tagsBalanced(svg), adj.id);
+    const p = picks(svg);
+    assert.deepEqual(p.map((x) => x.pick), [1, 2, 3, 4, 5], adj.id);
+    assert.deepEqual(p.filter((x) => x.on).map((x) => x.pick), [4], `${adj.id}: підсвічено лише вибрану`);
+    onDial(svg, p, adj.id);
+    // 1 — найнижче, 5 — найвище (SVG: менше y — вище)
+    assert.ok(p[4].cy < p[0].cy, `${adj.id}: 5 вище за 1`);
+    assert.deepEqual(picks(pickerArt(m, adj, undefined)).filter((x) => x.on), [], adj.id);
+    assert.notEqual(pickerArt(m, adj, 1), svg, `${adj.id}: інше значення — інше положення`);
+    assert.equal(picks(pickerArt(m, { ...adj, count: 7 }, 2)).length, 7, adj.id);
+  }
+  assert.notEqual(pickerArt(m, active(byId['eq-07'])[0], 3), pickerArt(m, active(byId['eq-07'])[1], 3), 'важіль і валік — різні малюнки');
 });
 
 test('Розгинання ніг: у вікні вибору кожного з трьох регулювань — позиції 1…N, вибрана підсвічена', () => {
@@ -176,4 +196,21 @@ test('Розгинання ніг: у вікні вибору кожного з 
     assert.deepEqual(picks(pickerArt(m, adj, undefined)).filter((x) => x.on), [], adj.id);
     assert.notEqual(pickerArt(m, adj, 5), svg, `${adj.id}: значення рухає деталь`);
   }
+});
+
+test('Розгинання ніг (W3): «Валік» і «Нахил» — диски з отворами по колу; «Спинка» — поділки на трубі під сидінням', () => {
+  const m = mod('leg-extension');
+  const adjs = Object.fromEntries(active(byId['eq-10']).map((a) => [a.id, a]));
+  for (const id of ['roller', 'tilt']) {
+    const svg = pickerArt(m, adjs[id], 3);
+    onDial(svg, picks(svg), id);
+  }
+  const svg = pickerArt(m, adjs.backrest, 3);
+  const p = picks(svg);
+  assert.ok(!/data-dial-center/.test(svg), 'спинка — не диск');
+  for (const x of p) assert.equal(x.cy, p[0].cy, 'поділки на одній горизонтальній трубі');
+  for (let i = 1; i < p.length; i++) assert.ok(p[i].cx - p[i - 1].cx >= 24, '1 — ближче до валика, далі — по черзі');
+  assert.match(svg, /1 — ближче до валика \(коротші ноги\)/);
+  assert.match(svg, /5 — далі \(довші ноги\)/);
+  assert.match(svg, /↔/, 'стрілка вперед-назад');
 });
