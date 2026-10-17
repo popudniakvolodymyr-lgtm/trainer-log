@@ -186,3 +186,8 @@ renderScheme(container, equipment, exerciseId, values, {onPick(adjustmentId)})
 - model: `localRecordCounts(state, meta)`, `hasLocalRecords(state, meta)`. store: `clearAll()` (лишає deviceId, засіває каталог). settings.js: `changeRole(ctx, {ask?}) → bool`, `askRoleChange(info, ctx)`, `changeRoleButton(ctx)` (id `change-role`) — таск 12 вставляє його на головний екран клієнта в `client.js`.
 - Тимчасово червоні 2 тести поза зоною T11: `test/schemes.test.js` (немає схеми 'pullup-bar' — таск 14 додає) і `test/schemes-legs.test.js` (eq-07 MARKERS тепер `lever`+`roller` — таск 13 оновлює).
 - Також змінено `src/ui/clients.js` (кнопка «Змінити роль» на головному екрані тренера). Тип ваги «Дві ноги / одна нога» доступний і для власних тренажерів тренера (A → G33: тренер може додати свій жим ногами). Новий підхід після старого Л/П підставляє в «Дві ноги» суму сторін.
+
+## Межі четвертої черги (таски 15–16)
+
+- Таск 15: запис на дату — `openSetForm` отримує `date` (рядок YYYY-MM-DD, за замовчуванням сьогодні); `addSet(store, {..., date})` кладе підхід у сесію цієї дати; маршрут екрана тренажера може нести дату (напр. `#/client/<id>/eq/<eqId>/<exId>?date=YYYY-MM-DD` або через `history.state`) — вирішує таск 15 і описує в контракті. Кошик і підтвердження в історії (`src/ui/exercise.js`), збереження прокрутки. `sw.js` — лише таск 15.
+- Таск 16: `src/schemes/upper.js` — PICKER `grip-pos` для eq-14 (`plate-shoulder-press`) — нова форма L; eq-21 лишається з поточним PICKER.

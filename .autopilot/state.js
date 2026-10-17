@@ -2,19 +2,19 @@ window.STATE =
 {
   "version": 2,
   "slug": "trainer-log",
-  "dir": "2026-10-17-trainer-log",
+  "dir": "2026-10-17-trainer-log--wip",
   "title": "Журнал фітнес-тренера",
   "mode": "semi",
   "depth": "normal",
   "tier": "T2",
-  "briefFile": "2026-10-18-brief-pravky-3.md",
+  "briefFile": "2026-10-18-brief-pravky-4.md",
   "memoryFile": "AGENTS.md",
   "memoryOwner": "autopilot",
   "skillDir": "C:/Антігравіті ресьорч/.claude/skills/autopilot",
   "baseCommit": "a3eeb4c",
   "startedAt": "2026-10-17T17:50:53+03:00",
-  "updatedAt": "2026-10-18T01:35:36+03:00",
-  "finishedAt": "2026-10-18T01:35:36+03:00",
+  "updatedAt": "2026-10-18T01:54:15+03:00",
+  "finishedAt": null,
   "stages": [
     {
       "id": "preflight",
@@ -25,51 +25,44 @@ window.STATE =
     {
       "id": "manifest",
       "status": "done",
-      "startedAt": "2026-10-18T00:39:29+03:00",
-      "finishedAt": "2026-10-18T00:41:31+03:00"
+      "startedAt": "2026-10-18T01:53:40+03:00",
+      "finishedAt": "2026-10-18T01:53:47+03:00"
     },
     {
       "id": "briefing",
       "status": "skipped",
-      "startedAt": "2026-10-18T00:39:35+03:00",
-      "finishedAt": "2026-10-18T00:39:35+03:00",
-      "note": "усе уточнено в діалозі"
+      "startedAt": "2026-10-18T01:53:45+03:00",
+      "finishedAt": "2026-10-18T01:53:45+03:00",
+      "note": "уточнено в діалозі"
     },
     {
       "id": "spec",
       "status": "done",
-      "startedAt": "2026-10-18T00:41:31+03:00",
-      "finishedAt": "2026-10-18T00:41:33+03:00"
+      "startedAt": "2026-10-18T01:53:47+03:00",
+      "finishedAt": "2026-10-18T01:54:11+03:00"
     },
     {
       "id": "plan",
-      "status": "done",
-      "startedAt": "2026-10-18T00:41:33+03:00",
-      "finishedAt": "2026-10-18T00:41:51+03:00"
+      "status": "active",
+      "startedAt": "2026-10-18T01:54:11+03:00"
     },
     {
       "id": "build",
-      "status": "done",
-      "startedAt": "2026-10-18T00:41:51+03:00",
-      "finishedAt": "2026-10-18T01:10:17+03:00"
+      "status": "pending"
     },
     {
       "id": "review",
-      "status": "done",
-      "startedAt": "2026-10-18T01:10:17+03:00",
-      "finishedAt": "2026-10-18T01:35:36+03:00"
+      "status": "pending"
     },
     {
       "id": "final",
-      "status": "done",
-      "finishedAt": "2026-10-18T01:35:36+03:00",
-      "startedAt": "2026-10-18T01:35:36+03:00"
+      "status": "pending"
     }
   ],
   "requirements": {
-    "total": 88,
+    "total": 92,
     "done": 88,
-    "inTicket": 0,
+    "inTicket": 4,
     "inSpec": 0,
     "placeholder": 0,
     "deferred": 0,
@@ -620,6 +613,54 @@ window.STATE =
       "commit": "7fd2e32"
     },
     {
+      "id": "15",
+      "title": "Запис на минулу дату, кошик у історії, екран не стрибає",
+      "requirements": [
+        "G40",
+        "G41",
+        "G42"
+      ],
+      "blockedBy": [],
+      "wave": 13,
+      "zone": [
+        "src/ui/log-form.js",
+        "src/ui/log-data.js",
+        "src/ui/exercise.js",
+        "src/ui/calendar.js",
+        "src/ui/today.js",
+        "src/ui/client.js",
+        "src/app.js",
+        "css/screens.css",
+        "sw.js",
+        "test/log-data.test.js",
+        "test/today.test.js",
+        "test/nav.test.js"
+      ],
+      "review": "да — видалення даних користувача",
+      "model": "сильная",
+      "status": "pending",
+      "retries": 0,
+      "repairs": 0
+    },
+    {
+      "id": "16",
+      "title": "Ручка-L у вікні хвату «Жиму сидячи»",
+      "requirements": [
+        "G43"
+      ],
+      "blockedBy": [],
+      "wave": 13,
+      "zone": [
+        "src/schemes/upper.js",
+        "test/schemes-upper.test.js"
+      ],
+      "review": "нет",
+      "model": "сильная",
+      "status": "pending",
+      "retries": 0,
+      "repairs": 0
+    },
+    {
       "id": "F1",
       "title": "Ремонт гілки за код-рев'ю",
       "requirements": [
@@ -700,10 +741,10 @@ window.STATE =
       "review": "да — ремонт ветки",
       "model": "сильная",
       "status": "done",
-      "retries": 0,
-      "repairs": 0,
       "startedAt": "2026-10-18T01:19:42+03:00",
       "finishedAt": "2026-10-18T01:35:15+03:00",
+      "retries": 0,
+      "repairs": 0,
       "tests": {
         "passed": 218,
         "failed": 0
@@ -749,11 +790,7 @@ window.STATE =
     "src/schemes/index.js renderScheme — компонування (мітка → панель → збереження) без автотесту",
     "src/store.js clearAll — без автотесту; changeRole перевірено на підробленому store"
   ],
-  "blind": {
-    "checked": 9,
-    "matched": 9,
-    "mismatches": []
-  },
+  "blind": null,
   "beats": [
     "2026-10-17T17:50:53+03:00",
     "2026-10-17T17:51:10+03:00",
@@ -882,9 +919,17 @@ window.STATE =
     "2026-10-18T01:25:22+03:00",
     "2026-10-18T01:35:15+03:00",
     "2026-10-18T01:35:17+03:00",
-    "2026-10-18T01:35:36+03:00"
+    "2026-10-18T01:35:36+03:00",
+    "2026-10-18T01:53:40+03:00",
+    "2026-10-18T01:53:41+03:00",
+    "2026-10-18T01:53:43+03:00",
+    "2026-10-18T01:53:45+03:00",
+    "2026-10-18T01:53:47+03:00",
+    "2026-10-18T01:54:11+03:00",
+    "2026-10-18T01:54:13+03:00",
+    "2026-10-18T01:54:15+03:00"
   ],
-  "rev": 129,
+  "rev": 137,
   "waiting": null,
   "waits": [
     {
@@ -1828,6 +1873,55 @@ window.STATE =
       "t": "2026-10-18T01:35:36+03:00",
       "k": "finish",
       "result": "Третя черга правок: дві ноги / одна нога, ручки-Г, турнік, згинання й розгинання ніг, «Сьогодні» і «Календар», «Змінити роль», «назад» закриває панель"
+    },
+    {
+      "t": "2026-10-18T01:53:40+03:00",
+      "k": "reopen"
+    },
+    {
+      "t": "2026-10-18T01:53:43+03:00",
+      "k": "stage",
+      "id": "manifest",
+      "act": "start"
+    },
+    {
+      "t": "2026-10-18T01:53:45+03:00",
+      "k": "stage",
+      "id": "briefing",
+      "act": "skip",
+      "note": "уточнено в діалозі"
+    },
+    {
+      "t": "2026-10-18T01:53:47+03:00",
+      "k": "gate",
+      "g": "G1",
+      "ok": true,
+      "open": 0,
+      "total": 92
+    },
+    {
+      "t": "2026-10-18T01:53:47+03:00",
+      "k": "stage",
+      "id": "spec",
+      "act": "start"
+    },
+    {
+      "t": "2026-10-18T01:54:11+03:00",
+      "k": "stage",
+      "id": "plan",
+      "act": "start"
+    },
+    {
+      "t": "2026-10-18T01:54:13+03:00",
+      "k": "tickets",
+      "n": 19
+    },
+    {
+      "t": "2026-10-18T01:54:15+03:00",
+      "k": "gate",
+      "g": "G3",
+      "ok": true,
+      "problems": 0
     }
   ],
   "reqList": [
@@ -2270,28 +2364,42 @@ window.STATE =
       "id": "G39",
       "text": "«нема кнопки вийти … як мені розлогінитись і ввійти як гість»",
       "status": "done"
+    },
+    {
+      "id": "G40",
+      "text": "«а якщо я хочу внести старе тренування, вчораннє наприклад, або тренування місяць назад?»",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G41",
+      "text": "«після видалення підходу мене перекидує на початок сторінки»",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G42",
+      "text": "«біля кнопки редагувати підхід постав корзинку щоб видалити, і під час видалення меню підтвердження»",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G43",
+      "text": "«тут не правильно ручку намалював» (Жим сидячи, ручка-L)",
+      "status": "in-ticket"
     }
   ],
   "gates": {
     "G1": {
       "ok": true,
-      "at": "2026-10-18T00:41:31+03:00",
+      "at": "2026-10-18T01:53:47+03:00",
       "open": 0,
-      "total": 88
+      "total": 92
     },
     "G3": {
       "ok": true,
-      "at": "2026-10-18T01:19:40+03:00",
+      "at": "2026-10-18T01:54:15+03:00",
       "problems": 0
-    },
-    "G4": {
-      "ok": true,
-      "at": "2026-10-18T01:19:36+03:00",
-      "checked": 9,
-      "matched": 9
     }
   },
-  "result": "Третя черга правок: дві ноги / одна нога, ручки-Г, турнік, згинання й розгинання ніг, «Сьогодні» і «Календар», «Змінити роль», «назад» закриває панель",
+  "result": null,
   "report": [
     "У день, коли і тренер, і клієнт записали ту саму вправу, історія показує цю дату двома рядками (нічого не губиться)",
     "Сховище і операції над записами не мають автоматичних тестів — перевірені вручну в браузері",
