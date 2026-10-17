@@ -46,12 +46,18 @@ export function monthGrid(ym) {
 /** Дні, де є підходи (Set 'YYYY-MM-DD'). */
 export const workoutDates = (sessions) => new Set(Object.keys(groupByDay(sessions)));
 
+/** Чи можна додати запис на цей день: вибрано день і він не з майбутнього. */
+export const canAddOnDay = (day, todayStr) => !!day && day <= todayStr;
+
 /**
  * Вкладка «Календар». view = { month?, day? } — де зупинилися (береться з history.state);
  * onView(patch) — повідомити про зміну (картка пише її в history.state без нового кроку історії).
  * Перемальовує себе на місці: прокрутка не стрибає.
+ * onAdd(date) — «Додати запис на цей день» (під списком вибраного дня, лише сьогодні й минуле).
  */
-export function calendarView({ clientId, sessions, equipment, todayStr, view = {}, onView = () => {}, onLeave = null }) {
+export function calendarView({
+  clientId, sessions, equipment, todayStr, view = {}, onView = () => {}, onLeave = null, onAdd = null,
+}) {
   const dates = workoutDates(sessions);
   const past = pastWorkoutDate(sessions, todayStr);
   let month = view.month || monthOf(view.day || todayStr);
@@ -92,7 +98,13 @@ export function calendarView({ clientId, sessions, equipment, todayStr, view = {
         dayList({
           clientId, sessions: daySessions(sessions, day), equipment, onLeave,
           emptyText: 'Цього дня нічого не записано',
-        }))
+        }),
+        onAdd && canAddOnDay(day, todayStr)
+          ? h('button', {
+            class: 'btn btn-big cal-add', type: 'button', id: 'add-on-day',
+            onclick: () => onAdd(day),
+          }, 'Додати запис на цей день')
+          : null)
       : h('p', { class: 'muted' }, 'Оберіть день, щоб побачити, що робили.');
 
     root.replaceChildren(...[

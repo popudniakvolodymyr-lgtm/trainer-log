@@ -1,7 +1,8 @@
 // Форми журналу: запис/правка підходу (нижня панель) і вибір значення регулювання.
 
 import { h, sheet, toast, confirmDialog } from './dom.js';
-import { validateSet, formatNumber, isLegacyHandsSet } from '../core/model.js';
+import { validateSet, formatNumber, formatDate, isLegacyHandsSet, today } from '../core/model.js';
+import { validLogDate } from './log-data.js';
 import { APPROX_TEXT } from '../schemes/index.js';
 
 const REPS = { key: 'reps', label: 'Повторення', step: 1, mode: 'numeric' };
@@ -62,7 +63,9 @@ function segmented(label, options, value, onChange) {
 /**
  * Відкриває панель підходу.
  * opts: { weightMode, step?: 5|2.5|null (крок ваги тренажера), initial: Set|null, title,
- *         onSave(set) → Promise, onDelete?() → Promise, allowAgain? }
+ *         onSave(set, date) → Promise, onDelete?() → Promise, allowAgain?,
+ *         date?: 'YYYY-MM-DD' (новий підхід; за замовчуванням сьогодні), initialFor?(date) → Set|null,
+ *         deleteText? — текст підтвердження видалення }
  * Підставлені значення — з initial (у новому підході вага — найближче кратне кроку);
  * кнопки ваги −крок/+крок; невірне введення лишається в полях, підказка під полем.
  * weightMode 'legs': перемикач «Дві ноги / Одна нога» (+ «Ліва / Права»); стартовий вибір —
@@ -71,16 +74,24 @@ function segmented(label, options, value, onChange) {
  */
 export function openSetForm({
   weightMode, step = null, initial: given = null, title, onSave, onDelete = null, allowAgain = false,
+  date: givenDate = null, initialFor = null, deleteText = 'Видалити цей підхід?',
 }) {
   const isNew = !onDelete;
+  // Новий підхід: рядок «Дата: сьогодні» (вибір дати, майбутнє заборонено). Зміна дати — підстановка
+  // з initialFor(date) (останній підхід до цієї дати). onSave(set, date); після запису на іншу дату — тост.
+  const todayStr = today();
+  let date = isNew ? (validLogDate(givenDate, todayStr) || todayStr) : null;
   const legacyEdit = weightMode === 'legs' && !isNew && isLegacyHandsSet(given);
   const mode = legacyEdit ? 'perHand' : weightMode;
-  let initial = given;
-  if (mode === 'legs' && isLegacyHandsSet(given)) {
-    // Новий підхід після старого «Л/П»: загальна вага на платформі — сума сторін.
-    const sum = (Number(given.left) || 0) + (Number(given.right) || 0);
-    initial = { reps: given.reps, weight: sum || null, leg: null };
-  }
+  const prepare = (g) => {
+    if (mode === 'legs' && isLegacyHandsSet(g)) {
+      // Новий підхід після старого «Л/П»: загальна вага на платформі — сума сторін.
+      const sum = (Number(g.left) || 0) + (Number(g.right) || 0);
+      return { reps: g.reps, weight: sum || null, leg: null };
+    }
+    return g;
+  };
+  let initial = prepare(given);
   const fields = (SET_FIELDS[mode] || []).map((f) => (step && STEPPED.has(f.key) ? { ...f, step, snap: true } : f));
 
   // «Дві ноги» (leg = null) | «Одна нога» + сторона.
@@ -144,6 +155,48 @@ export function openSetForm({
       errors[f.key]);
   });
 
+  // Рядок «Дата: сьогодні» — лише в новому підході. Натиск відкриває нативний вибір дати
+  // (прозорий input type=date поверх рядка; showPicker — де браузер його має).
+  let dateRow = null;
+  if (isNew) {
+    const dateText = h('span', { class: 'log-date-value' });
+    const dateError = h('p', { class: 'field-error', role: 'alert' });
+    const picker = h('input', {
+      class: 'log-date-input', type: 'date', id: 'f-date', max: todayStr, value: date,
+      'aria-label': 'Дата підходу',
+    });
+    const showDate = () => {
+      dateText.textContent = date === todayStr ? 'сьогодні' : formatDate(date);
+      dateRow.classList.toggle('is-past', date !== todayStr);
+    };
+    picker.addEventListener('click', () => {
+      try { if (typeof picker.showPicker === 'function') picker.showPicker(); } catch { /* немає жесту — браузер відкриє сам */ }
+    });
+    picker.addEventListener('change', () => {
+      const next = validLogDate(picker.value, todayStr);
+      dateError.textContent = picker.value && !next ? 'Майбутню дату вибрати не можна' : '';
+      const was = date;
+      date = next || todayStr;
+      picker.value = date;
+      showDate();
+      if (date !== was && initialFor) {
+        initial = prepare(initialFor(date));
+        for (const f of fields) {
+          inputs[f.key].value = startValue(f);
+          errors[f.key].textContent = '';
+          inputs[f.key].removeAttribute('aria-invalid');
+        }
+      }
+    });
+    dateRow = h('div', { class: 'log-field' },
+      h('label', { class: 'log-date', for: 'f-date' },
+        h('span', { class: 'log-date-label' }, 'Дата:'), ' ', dateText,
+        h('span', { class: 'log-date-hint', 'aria-hidden': 'true' }, 'змінити'),
+        picker),
+      dateError);
+    showDate();
+  }
+
   // → Set | null (null — є помилки, вони вже показані під полями)
   function collect() {
     const raw = {};
@@ -171,9 +224,10 @@ export function openSetForm({
     if (!set) return;
     busy = true;
     try {
-      await onSave(set);
-      if (again) toast('Підхід записано');
-      else handle.close();
+      await onSave(set, date);
+      if (date && date !== todayStr) toast(`Записано на ${formatDate(date)}`);
+      else if (again) toast('Підхід записано');
+      if (!again) handle.close();
     } catch (err) {
       console.error(err);
       toast('Не вдалося зберегти. Спробуйте ще раз.');
@@ -186,6 +240,7 @@ export function openSetForm({
     class: 'form log-form', novalidate: true,
     onsubmit: (e) => { e.preventDefault(); submit(false); },
   },
+  dateRow,
   legRows,
   rows,
   h('button', { class: 'btn btn-primary btn-big', type: 'submit' }, 'Зберегти'),
@@ -197,7 +252,7 @@ export function openSetForm({
       class: 'btn btn-danger btn-big', type: 'button',
       onclick: async () => {
         if (busy) return;
-        const ok = await confirmDialog('Видалити цей підхід?', { ok: 'Видалити', danger: true });
+        const ok = await confirmDialog(deleteText, { ok: 'Видалити', danger: true });
         if (!ok) return;
         busy = true;
         try {

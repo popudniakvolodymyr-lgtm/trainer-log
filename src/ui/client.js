@@ -7,9 +7,11 @@
 // Вгорі три вкладки: «Тренажери» (меню), «Сьогодні», «Календар». Вкладка й стан календаря живуть у
 // history.state.view ({clientId, tab, month, day, scrollY}): перемикання — replaceState, без нових кроків
 // історії, тож «назад» з тренажера повертає на ту саму вкладку й місце.
+// «Календар» → «Додати запис на цей день»: панель з тим самим меню тренажерів; тренажер відкривається
+// з ?date=YYYY-MM-DD (форма підходу вже з цією датою), «назад» — у календар на той день.
 
-import { h, mount } from './dom.js';
-import { GROUPS, today } from '../core/model.js';
+import { h, mount, sheet } from './dom.js';
+import { GROUPS, today, formatDate } from '../core/model.js';
 import { menuEquipment } from '../core/catalog.js';
 import { listSessions, recentEquipmentIds } from './log-data.js';
 import { sendButton, backupBanner } from './exchange.js';
@@ -21,17 +23,17 @@ import { calendarView } from './calendar.js';
 const RECENT_LIMIT = 6;
 const TABS = [['menu', 'Тренажери'], ['today', 'Сьогодні'], ['calendar', 'Календар']];
 
-const eqHref = (clientId, equipmentId) =>
-  `#/client/${encodeURIComponent(clientId)}/eq/${encodeURIComponent(equipmentId)}`;
+const eqHref = (clientId, equipmentId, date = null) =>
+  `#/client/${encodeURIComponent(clientId)}/eq/${encodeURIComponent(equipmentId)}${date ? `?date=${date}` : ''}`;
 
 // Рідкісні (і сховані, на яких є записи клієнта) — сірим, у кінці групи.
 const MUTED_STYLE = { opacity: '0.55', filter: 'grayscale(1)' };
 
 /** Кнопка тренажера: назва (власна) і дрібно — назва з сайту, якщо відрізняється. */
-function equipmentButton(clientId, eq, muted = false, onLeave = null) {
+function equipmentButton(clientId, eq, muted = false, onLeave = null, date = null) {
   const sub = eq.siteName && eq.siteName !== eq.name ? eq.siteName : null;
   return h('a', {
-    class: `eq-btn${muted ? ' is-rare' : ''}`, href: eqHref(clientId, eq.id), dataset: { eq: eq.id },
+    class: `eq-btn${muted ? ' is-rare' : ''}`, href: eqHref(clientId, eq.id, date), dataset: { eq: eq.id },
     style: muted ? MUTED_STYLE : null,
     onclick: onLeave,
   },
@@ -76,6 +78,85 @@ function tabsNav(clientId, current, rerender) {
     }, title)));
 }
 
+function searchInput() {
+  return h('input', {
+    class: 'input', type: 'search', placeholder: 'Пошук тренажера', 'aria-label': 'Пошук тренажера',
+    autocomplete: 'off',
+  });
+}
+
+/**
+ * Меню тренажерів за групами + «Останні» і пошук (вкладка «Тренажери» і панель «Додати запис на цей день»).
+ * date — посилання ведуть на запис цієї дати. → { body, noMatch, filter() }
+ */
+function equipmentMenu({ clientId, equipment: all, sessions, search, onLeave, date = null }) {
+  // Сховане й прибране з каталогу — лише якщо на ньому є записи клієнта (П5, П9).
+  const menu = menuEquipment(all, sessions);
+  const mutedIds = new Set(menu.filter((x) => x.muted).map((x) => x.equipment.id));
+  const equipment = menu.map((x) => x.equipment);
+  const byId = new Map(equipment.map((e) => [e.id, e]));
+  const recent = recentEquipmentIds(sessions).map((id) => byId.get(id)).filter(Boolean).slice(0, RECENT_LIMIT);
+
+  const body = h('div', { class: 'eq-menu' });
+  const noMatch = h('p', { class: 'muted', hidden: true }, 'Тренажер не знайдено');
+
+  const section = (title, items, cls = '') => h('section', { class: `eq-group ${cls}` },
+    h('h2', null, title),
+    h('div', { class: 'eq-grid' }, items.map((eq) => equipmentButton(clientId, eq, mutedIds.has(eq.id), onLeave, date))));
+
+  const recentSection = recent.length ? section('Останні', recent, 'eq-recent') : null;
+  const groupSections = Object.entries(GROUPS).map(([groupId, title]) => {
+    const items = equipment.filter((e) => e.group === groupId);
+    if (!items.length) return null;
+    const el = section(title, items);
+    return { el, items, title };
+  }).filter(Boolean);
+
+  body.append(...(recentSection ? [recentSection] : []), ...groupSections.map((g) => g.el));
+
+  const filter = () => {
+    const q = search.value.trim().toLowerCase();
+    if (recentSection) recentSection.hidden = !!q;
+    let shown = 0;
+    for (const g of groupSections) {
+      let any = false;
+      g.items.forEach((eq, i) => {
+        const hit = !q || `${eq.name} ${eq.siteName || ''} ${g.title}`.toLowerCase().includes(q);
+        g.el.querySelectorAll('.eq-btn')[i].hidden = !hit;
+        if (hit) { any = true; shown++; }
+      });
+      g.el.hidden = !any;
+    }
+    noMatch.hidden = shown > 0;
+  };
+  search.addEventListener('input', filter);
+  return { body, noMatch, filter };
+}
+
+/**
+ * «Додати запис на цей день»: панель з меню тренажерів. Вибір тренажера закриває панель (її крок
+ * історії знімається) і відкриває тренажер з ?date= новим кроком — «назад» повертає в календар на цей день.
+ */
+async function openDayMenu(ctx, client, date, sessions) {
+  const search = searchInput();
+  let handle = null;
+  const go = (e) => {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    if (!handle) return;
+    const href = e.currentTarget.getAttribute('href');
+    // Прокрутка календаря; поки панель відкрита, це крок панелі — при її закритті стан переноситься в крок картки.
+    patchView(client.id, { scrollY: window.scrollY });
+    handle.close();
+    ctx.navigate(href);
+  };
+  const { body, noMatch } = equipmentMenu({
+    clientId: client.id, equipment: await ctx.store.all('equipment'), sessions, search, onLeave: go, date,
+  });
+  handle = sheet(h('div', { class: 'stack day-menu' }, search, body, noMatch), { title: `Запис на ${formatDate(date)}` });
+  return handle;
+}
+
 /** Вкладки «Сьогодні» й «Календар»: перед переходом на тренажер запам'ятовують прокрутку. */
 async function renderDayTab(container, ctx, client, tab, sessions) {
   const equipment = await ctx.store.all('equipment');
@@ -84,7 +165,10 @@ async function renderDayTab(container, ctx, client, tab, sessions) {
   const common = { clientId: client.id, sessions, equipment, todayStr: today(), onLeave: leave };
   const content = tab === 'today'
     ? todayView(common)
-    : calendarView({ ...common, view, onView: (patch) => patchView(client.id, patch) });
+    : calendarView({
+      ...common, view, onView: (patch) => patchView(client.id, patch),
+      onAdd: (date) => openDayMenu(ctx, client, date, sessions),
+    });
   const screen = h('div', { class: 'screen' },
     h('h1', null, client.name),
     tabsNav(client.id, tab, ctx.rerender),
@@ -115,19 +199,8 @@ export async function renderClient(container, ctx) {
   const sessions = await listSessions(store, client.id);
   const tab = TABS.some(([id]) => id === savedView(client.id).tab) ? savedView(client.id).tab : 'menu';
   if (tab !== 'menu') return renderDayTab(container, ctx, client, tab, sessions);
-  // Сховане й прибране з каталогу — лише якщо на ньому є записи клієнта (П5, П9).
-  const menu = menuEquipment(await store.all('equipment'), sessions);
-  const mutedIds = new Set(menu.filter((x) => x.muted).map((x) => x.equipment.id));
-  const equipment = menu.map((x) => x.equipment);
-  const byId = new Map(equipment.map((e) => [e.id, e]));
-  const recent = recentEquipmentIds(sessions).map((id) => byId.get(id)).filter(Boolean).slice(0, RECENT_LIMIT);
 
-  const body = h('div', { class: 'eq-menu' });
-  const noMatch = h('p', { class: 'muted', hidden: true }, 'Тренажер не знайдено');
-  const search = h('input', {
-    class: 'input', type: 'search', placeholder: 'Пошук тренажера', 'aria-label': 'Пошук тренажера',
-    autocomplete: 'off',
-  });
+  const search = searchInput();
 
   // Перед переходом на тренажер — запам'ятати місце меню в поточному кроці історії:
   // яку кнопку натиснули (і в якій секції) та де вона була на екрані.
@@ -145,36 +218,9 @@ export async function renderClient(container, ctx) {
     }, '');
   };
 
-  const section = (title, items, cls = '') => h('section', { class: `eq-group ${cls}` },
-    h('h2', null, title),
-    h('div', { class: 'eq-grid' }, items.map((eq) => equipmentButton(client.id, eq, mutedIds.has(eq.id), remember))));
-
-  const recentSection = recent.length ? section('Останні', recent, 'eq-recent') : null;
-  const groupSections = Object.entries(GROUPS).map(([groupId, title]) => {
-    const items = equipment.filter((e) => e.group === groupId);
-    if (!items.length) return null;
-    const el = section(title, items);
-    return { el, items, title };
-  }).filter(Boolean);
-
-  body.append(...(recentSection ? [recentSection] : []), ...groupSections.map((g) => g.el));
-
-  const filter = () => {
-    const q = search.value.trim().toLowerCase();
-    if (recentSection) recentSection.hidden = !!q;
-    let shown = 0;
-    for (const g of groupSections) {
-      let any = false;
-      g.items.forEach((eq, i) => {
-        const hit = !q || `${eq.name} ${eq.siteName || ''} ${g.title}`.toLowerCase().includes(q);
-        g.el.querySelectorAll('.eq-btn')[i].hidden = !hit;
-        if (hit) { any = true; shown++; }
-      });
-      g.el.hidden = !any;
-    }
-    noMatch.hidden = shown > 0;
-  };
-  search.addEventListener('input', filter);
+  const { body, noMatch, filter } = equipmentMenu({
+    clientId: client.id, equipment: await store.all('equipment'), sessions, search, onLeave: remember,
+  });
 
   // Місце меню застосовується один раз — при поверненні на цей крок; потім стирається,
   // щоб наступні перемальовування (і очищений пошук) його не повертали.

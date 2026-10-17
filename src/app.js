@@ -1,6 +1,7 @@
 // Точка входу: відкриває сховище, маршрутизує за location.hash, реєструє service worker.
 //
-// Маршрути: #/start, #/clients, #/client/<id>, #/client/<id>/eq/<eqId>[/<exId>], #/equipment, #/settings
+// Маршрути: #/start, #/clients, #/client/<id>, #/client/<id>/eq/<eqId>[/<exId>][?date=YYYY-MM-DD], #/equipment, #/settings
+// Хвіст ?… — параметри екрана (params.date — запис на минулу дату з «Календаря»), у маршрут не входить.
 // Екран — функція render(container, ctx), ctx = { store, meta, params, navigate(hash), rerender() }.
 
 import { openStore } from './store.js';
@@ -11,6 +12,7 @@ import { renderClients } from './ui/clients.js';
 import { renderClient } from './ui/client.js';
 import { renderExercise } from './ui/exercise.js';
 import { renderEquipment } from './ui/equipment.js';
+import { validLogDate } from './ui/log-data.js';
 
 
 /**
@@ -35,6 +37,24 @@ export function homeFor(meta) {
   return '#/start';
 }
 
+/** '#/a/b?date=2026-09-17' → { path: '#/a/b', query: { date: '2026-09-17' } } */
+export function splitHash(hash) {
+  const s = String(hash || '');
+  const i = s.indexOf('?');
+  if (i < 0) return { path: s, query: {} };
+  const query = {};
+  for (const part of s.slice(i + 1).split('&')) {
+    if (!part) continue;
+    const eq = part.indexOf('=');
+    const key = eq < 0 ? part : part.slice(0, eq);
+    const value = eq < 0 ? '' : part.slice(eq + 1);
+    try {
+      query[decodeURIComponent(key)] = decodeURIComponent(value);
+    } catch { /* битий параметр — пропускаємо */ }
+  }
+  return { path: s.slice(0, i), query };
+}
+
 const EXERCISE_HASH = /^#\/client\/([^/]+)\/eq\/([^/]+)(?:\/([^/]+))?$/;
 const CLIENT_HASH = /^#\/client\/([^/]+)$/;
 
@@ -43,9 +63,10 @@ const CLIENT_HASH = /^#\/client\/([^/]+)$/;
  * Екран тренажера (будь-яка вкладка) → меню картки клієнта; картка → список клієнтів (тренер).
  */
 export function backTarget(hash, meta) {
-  const ex = EXERCISE_HASH.exec(hash || '');
+  const { path } = splitHash(hash);
+  const ex = EXERCISE_HASH.exec(path);
   if (ex) return `#/client/${ex[1]}`;
-  if (CLIENT_HASH.test(hash || '') && meta.role === 'trainer') return '#/clients';
+  if (CLIENT_HASH.test(path) && meta.role === 'trainer') return '#/clients';
   return null;
 }
 
@@ -61,14 +82,15 @@ export function backStep(hash, meta, prevHash) {
 
 /** Перехід між вкладками вправ того самого тренажера тієї самої картки — без нового кроку історії. */
 export function isTabSwitch(fromHash, toHash) {
-  const a = EXERCISE_HASH.exec(fromHash || '');
-  const b = EXERCISE_HASH.exec(toHash || '');
+  const a = EXERCISE_HASH.exec(splitHash(fromHash).path);
+  const b = EXERCISE_HASH.exec(splitHash(toHash).path);
   return !!(a && b && a[1] === b[1] && a[2] === b[2]);
 }
 
 function match(hash) {
+  const { path, query } = splitHash(hash);
   for (const r of routes) {
-    const m = r.pattern.exec(hash);
+    const m = r.pattern.exec(path);
     if (!m) continue;
     const params = {};
     try {
@@ -77,6 +99,11 @@ function match(hash) {
       });
     } catch {
       return null; // битий хеш (напр. «%») — як невідомий маршрут
+    }
+    // Дата запису — лише на екрані тренажера і лише справжня, не з майбутнього; інакше — сьогодні.
+    if (r.name === 'exercise') {
+      const date = validLogDate(query.date);
+      if (date) params.date = date;
     }
     return { route: r, params };
   }

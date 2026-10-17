@@ -104,6 +104,14 @@
 .history-n { color: var(--muted); min-width: 1.6em; }
 .history-text { flex: 1; font-weight: 600; }
 .history-edit { color: var(--muted); }
+.history-item { display: flex; align-items: center; gap: 4px; }
+.history-item .history-set { flex: 1; min-width: 0; }
+.history-del {
+  flex: none; width: 48px; min-height: 48px; padding: 0;
+  border: 0; border-radius: 10px; background: transparent; color: var(--danger);
+  font-size: 1.2rem; cursor: pointer;
+}
+.history-del:active { background: var(--primary-soft); }
 
 /* --- форма підходу --- */
 .log-form { gap: 10px; }
@@ -113,6 +121,21 @@
 .log-step { width: var(--tap); padding: 0; font-size: 1.6rem; flex: none; }
 .log-copy { min-height: 44px; align-self: flex-start; }
 .log-field .field-error { min-height: 0; }
+/* рядок «Дата: сьогодні»: прозорий input type=date поверх — натиск відкриває нативний вибір дати */
+.log-date {
+  position: relative; display: flex; align-items: center; gap: 6px;
+  min-height: 48px; padding: 6px 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+  font-size: 1.05rem; cursor: pointer;
+}
+.log-date-label { color: var(--muted); }
+.log-date-value { font-weight: 700; }
+.log-date-hint { margin-left: auto; color: var(--primary); font-size: 0.95rem; }
+.log-field.is-past .log-date { border-color: var(--primary); background: var(--primary-soft); }
+.log-date-input {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; border: 0; padding: 0; margin: 0; cursor: pointer;
+}
 
 /* --- вибір значення регулювання --- */
 .pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
@@ -153,3 +176,5 @@
 .cal-day.is-selected { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
 .cal-past { margin: 0 0 var(--gap); }
 .cal-day-view h2 { margin: var(--gap) 0 8px; }
+.cal-add { margin: var(--gap) 0 0; width: 100%; }
+.day-menu .eq-menu { margin: 0; }

@@ -15,16 +15,29 @@ export async function listSessions(store, clientId, { exerciseId = null, equipme
     .sort(byDate);
 }
 
-/** Останній записаний підхід (за найпізнішою датою) або null. */
-export function lastSet(sessions) {
+/**
+ * Останній записаний підхід (за найпізнішою датою) або null.
+ * upTo: 'YYYY-MM-DD' — лише сесії не пізніше цієї дати (запис на минулу дату підставляє тодішнє).
+ */
+export function lastSet(sessions, { upTo = null } = {}) {
   for (let i = sessions.length - 1; i >= 0; i--) {
+    if (upTo && sessions[i].date > upTo) continue;
     const sets = sessions[i].sets || [];
     if (sets.length) return sets[sets.length - 1];
   }
   return null;
 }
 
-/** Додає підхід у сесію сьогоднішнього дня (створює або «оживляє» видалену). → сесія */
+/** 'YYYY-MM-DD' — справжня дата не пізніше todayStr (на майбутнє не записуємо) → та сама дата, інакше null. */
+export function validLogDate(raw, todayStr = today()) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(typeof raw === 'string' ? raw : '');
+  if (!m) return null;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  if (d.getUTCFullYear() !== Number(m[1]) || d.getUTCMonth() + 1 !== Number(m[2]) || d.getUTCDate() !== Number(m[3])) return null;
+  return raw <= todayStr ? raw : null;
+}
+
+/** Додає підхід у сесію дня date (за замовчуванням сьогодні) (створює або «оживляє» видалену). → сесія */
 export async function addSet(store, { clientId, equipmentId, exerciseId, set, date = today() }) {
   const all = await store.all('sessions', { withDeleted: true });
   const found = all.find((s) => s.clientId === clientId && s.exerciseId === exerciseId && s.date === date);

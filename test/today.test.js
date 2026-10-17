@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { groupByDay, daySessions, dayEntries, pastWorkoutDate } from '../src/ui/today.js';
-import { MONTHS, WEEKDAYS, monthOf, shiftMonth, monthTitle, monthGrid, workoutDates } from '../src/ui/calendar.js';
+import { MONTHS, WEEKDAYS, monthOf, shiftMonth, monthTitle, monthGrid, workoutDates, canAddOnDay } from '../src/ui/calendar.js';
 
 const S = (id, date, exerciseId, equipmentId, sets, updatedAt, extra = {}) =>
   ({ id, clientId: 'c1', equipmentId, exerciseId, date, sets, updatedAt, ...extra });
@@ -93,4 +93,13 @@ test('monthGrid: лютий 2027 починається з понеділка і
 
 test('workoutDates: дні з підходами, без видалених і порожніх сесій', () => {
   assert.deepEqual([...workoutDates(SESSIONS)].sort(), ['2026-10-10', '2026-10-17', '2026-10-18']);
+});
+
+test('«Додати запис на цей день» — для сьогодні й минулих днів, не для майбутніх і не без вибраного дня', () => {
+  assert.equal(canAddOnDay('2026-10-18', '2026-10-18'), true);
+  assert.equal(canAddOnDay('2026-09-17', '2026-10-18'), true);
+  assert.equal(canAddOnDay('2025-12-31', '2026-10-18'), true);
+  assert.equal(canAddOnDay('2026-10-19', '2026-10-18'), false);
+  assert.equal(canAddOnDay('2026-11-01', '2026-10-18'), false);
+  assert.equal(canAddOnDay(null, '2026-10-18'), false);
 });

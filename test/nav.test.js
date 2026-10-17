@@ -1,7 +1,7 @@
 // Навігація «назад» (spec «Правки, друга черга» Q5): з екрана тренажера — у меню картки клієнта.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { backTarget, backStep, isTabSwitch, homeFor } from '../src/app.js';
+import { backTarget, backStep, isTabSwitch, homeFor, splitHash } from '../src/app.js';
 
 const trainer = { role: 'trainer' };
 const client = { role: 'client', clientId: 'c1' };
@@ -149,4 +149,21 @@ test('нова панель одразу після закриття попер�
   assert.equal(hist.index, 1);
   assert.equal(hist.length, 2);
   assert.equal(hist.state.sheet, 1);
+});
+
+// Запис на минулу дату (V1): екран тренажера з календаря — #/client/<id>/eq/<eqId>[/<exId>]?date=YYYY-MM-DD.
+test('хеш з ?date=: шлях окремо, дата окремо', () => {
+  assert.deepEqual(splitHash('#/client/c1/eq/eq-03/eq-03-b?date=2026-09-17'),
+    { path: '#/client/c1/eq/eq-03/eq-03-b', query: { date: '2026-09-17' } });
+  assert.deepEqual(splitHash('#/client/c1/eq/eq-03?date=2026-09-17'), { path: '#/client/c1/eq/eq-03', query: { date: '2026-09-17' } });
+  assert.deepEqual(splitHash('#/client/c1'), { path: '#/client/c1', query: {} });
+  assert.deepEqual(splitHash(''), { path: '', query: {} });
+});
+
+test('екран тренажера з датою: «назад» — у картку (календар на тому дні), вкладки вправ — без нового кроку', () => {
+  const ex = '#/client/c1/eq/eq-03/eq-03-b?date=2026-09-17';
+  assert.equal(backTarget(ex, trainer), '#/client/c1');
+  assert.equal(backTarget('#/client/c1/eq/eq-03?date=2026-09-17', client), '#/client/c1');
+  assert.deepEqual(backStep(ex, trainer, '#/client/c1'), { back: true });
+  assert.equal(isTabSwitch('#/client/c1/eq/eq-03?date=2026-09-17', '#/client/c1/eq/eq-03/eq-03-b?date=2026-09-17'), true);
 });
