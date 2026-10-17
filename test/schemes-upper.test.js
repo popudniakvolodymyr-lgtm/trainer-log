@@ -236,3 +236,61 @@ test('усі схеми тренажерів різні (жодна не під�
   const minis = visibleMachines.map((eq) => schemeFor(eq).art({ exerciseId: exercises(eq)[0].id, mini: true }));
   assert.ok(new Set(minis).size >= visibleMachines.length - 1, 'гравітрон може мати один силует на двох');
 });
+
+// --- третя черга (таск 14): ручки-Г (№14, №21) і турнік — spec «Правки, третя черга» W4, W6 ---
+
+test('ручка-Г (№14, №21): у вікні вибору дві зони — «Прямий» (долоні вперед) і «Під 90°» (долоні одна до одної)', () => {
+  for (const eqId of ['eq-14', 'eq-21']) {
+    const a = adj(eqId, 'grip-pos');
+    const sc = schemeFor(byId[eqId]);
+    for (const v of [undefined, 'pos-1', 'pos-2']) {
+      const svg = pickerArt(sc, a, v);
+      assert.ok(balanced(svg), `${eqId}/${v}`);
+      assert.ok(svg.includes('Прямий') && svg.includes('Під 90°'), `${eqId}: назви варіантів з каталогу`);
+      assert.ok(svg.includes('долоні вперед') && svg.includes('долоні одна до одної'), `${eqId}: як тримати`);
+      assert.ok(svg.includes('data-grip-zone="pos-1"') && svg.includes('data-grip-zone="pos-2"'), `${eqId}: дві зони на ручці`);
+    }
+    const on = pickerArt(sc, a, 'pos-2');
+    assert.ok(pickOn(on, 'pos-2') && !pickOn(on, 'pos-1'), eqId);
+  }
+});
+
+test('«Турнік» (eq-bar): схема pullup-bar — людина на перекладині, мітка хвату, значок без людини', () => {
+  const eq = byId['eq-bar'];
+  const sc = schemeFor(eq);
+  assert.ok(sc, 'немає схеми турніка');
+  assert.equal(sc.id, 'pullup-bar');
+  assert.ok(upperById['pullup-bar'], 'pullup-bar — у SCHEMES upper.js');
+  const ex = exercises(eq)[0];
+  const svg = sc.art({ exerciseId: ex.id, mini: false });
+  assert.ok(balanced(svg));
+  assert.deepEqual(viewBox(svg).slice(0, 3), [0, 0, 360]);
+  assert.ok(svg.includes('sc-person'), 'людина висить');
+  assert.match(ariaLabel(svg), /турнік/i);
+  assert.ok(!/<text[\s>]/.test(svg) && !/data-badge|data-adj=|stroke-dasharray/.test(svg));
+  for (const id of ids(svg)) assert.ok(id.startsWith('pullup-bar-'), id);
+  const [, , w, h] = viewBox(svg);
+  const p = schemeMarkers(sc, ex.id).grip;
+  assert.ok(p && p.x > 0 && p.x < w && p.y > 0 && p.y < h, 'мітка хвату на малюнку');
+  assert.ok(schemeSvg(sc, eq, ex.id, {}).includes('data-marker="grip"'));
+  const mini = sc.art({ exerciseId: ex.id, mini: true });
+  assert.ok(balanced(mini) && !mini.includes('sc-person'));
+  assert.equal(equipmentIcon(eq), mini);
+});
+
+test('«Турнік»: у вікні вибору три хвати з руками на перекладині, вибраний підсвічений', () => {
+  const eq = byId['eq-bar'];
+  const a = adj('eq-bar', 'grip');
+  const sc = schemeFor(eq);
+  const empty = pickerArt(sc, a, undefined);
+  assert.ok(balanced(empty));
+  for (const [v, label] of [['normal', 'Звичайний'], ['wide', 'Широкий'], ['reverse', 'Обратний']]) {
+    assert.ok(empty.includes(`data-pick="${v}"`), v);
+    assert.ok(empty.includes(label), label);
+    assert.ok(!pickOn(empty, v), `${v}: без значення нічого не підсвічено`);
+  }
+  assert.ok(empty.includes('долоні від себе') && empty.includes('долоні до себе'));
+  assert.equal((empty.match(/data-hand-grip=/g) || []).length, 6, 'по дві руки на кожен хват');
+  const on = pickerArt(sc, a, 'reverse');
+  assert.ok(pickOn(on, 'reverse') && !pickOn(on, 'normal') && !pickOn(on, 'wide'));
+});

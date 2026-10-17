@@ -616,29 +616,6 @@ export function heightPicker(kind, hints) {
   };
 }
 
-/** Картки варіантів поруч: малюнок art(optionId, on) у полі 120×86 + назва варіанта. */
-function optionCards(value, adj, art, title) {
-  const opts = (adj.options || []).filter((o) => !o.deleted);
-  const W = 330;
-  const gap = 10;
-  const n = Math.max(1, opts.length);
-  const cw = (W - 20 - gap * (n - 1)) / n;
-  const H = 150;
-  const out = opts.map((o, i) => {
-    const on = value === o.id;
-    const x = r1(10 + i * (cw + gap));
-    const k = Math.min(1, (cw - 12) / 120);
-    const pic = art(o.id, on);
-    return pickG(o.id, on, `${adj.label}: ${o.label}`,
-      el('rect', { x, y: 10, width: r1(cw), height: H - 20, rx: 14, fill: on ? '#e7f0fa' : '#ffffff', stroke: on ? ACC : '#c5cdc9', 'stroke-width': on ? 3 : 1.5 })
-      + (pic ? el('g', { transform: `translate(${r1(x + (cw - 120 * k) / 2)} 16) scale(${r1(k * 100) / 100})` }, pic) : '')
-      + text(r1(x + cw / 2), H - 22, o.label, {
-        'font-size': fit(o.label, cw - 14, 15), 'font-weight': on ? 800 : 600, 'text-anchor': 'middle', fill: on ? ACC : C.ink,
-      }));
-  });
-  return pickerSvg(W, H, title, out.join(''));
-}
-
 /** 5 ручок блоку малюнками (gym/my-photos/ruchky-stiyka.png). */
 export function handlePicker(value, adj) {
   const opts = (adj.options || []).filter((o) => !o.deleted);
@@ -765,31 +742,104 @@ const lateralRaise = artModule({
 });
 
 // ======================================================================
-// №14 Жим у тренажері сидячи (плечі, диски) — фото gym/my-photos/zhym-sydyachy-*.png і сайту 14:
-// сидіння між двома похилими стійками, на них осі помаранчевих важелів з ручками біля плечей і
-// млинцями; жим угору. Регулювання: позиція ручки (2 варіанти) і висота сидіння.
+// Ручка буквою Г (№14 жим сидячи, №21 вертикальна тяга) — фото gym/my-photos/zhym-sydyachy-ruchka-g.png,
+// vertykalna-tyaga-zal.png: від важеля ручка йде горизонтально всередину, на куті — вниз.
+// «Прямий» (pos-1) — за горизонтальну частину, долоні вперед; «Під 90°» (pos-2) — за вертикальну,
+// долоні одна до одної. Вікно вибору: ручка-Г крупно, дві кольорові зони, на вибраній — кисть.
 // ======================================================================
-const SP = {
-  // ручки на правому важелі (s = 1); 1 — горизонтальна всередину, 2 — вертикальна попереду
-  'pos-1': (s) => [[s * 46, 6, 119], [s * 28, 6, 119]],
-  'pos-2': (s) => [[s * 38, 17, 109], [s * 38, 17, 130]],
+const L_ZONES = {
+  'pos-1': { d: 'M272 98 L140 98', color: '#1c7ed6', how: 'долоні вперед' },
+  'pos-2': { d: 'M106 132 L106 176', color: '#ae3ec9', how: 'долоні одна до одної' },
 };
-function shoulderGripArt(id, on) {
-  const color = on ? ACC : '#9aa5a1';
-  const lever = el('path', { d: 'M8 30 L104 22', stroke: P3.orange, 'stroke-width': 14, 'stroke-linecap': 'round' })
-    + el('circle', { cx: 104, cy: 22, r: 15, fill: P3.plateGreen, stroke: '#1f6e2f', 'stroke-width': 2 })
-    + el('circle', { cx: 104, cy: 22, r: 4, fill: P3.metal });
-  const h1 = el('path', { d: 'M70 30 L22 60', stroke: id === 'pos-1' ? color : '#c8d0cc', 'stroke-width': id === 'pos-1' ? 10 : 7, 'stroke-linecap': 'round' });
-  const h2 = el('path', { d: 'M84 36 L84 82', stroke: id === 'pos-2' ? color : '#c8d0cc', 'stroke-width': id === 'pos-2' ? 10 : 7, 'stroke-linecap': 'round' })
-    + el('path', { d: 'M84 30 L84 38', stroke: P3.orange, 'stroke-width': 8 });
-  return SP[id] ? lever + h1 + h2 : '';
+const L_HANDLE = 'M300 98 L130 98 Q106 98 106 122 L106 182';
+const SKIN_P = P3.skin;
+const SKIN_D = tone(P3.skin, -0.28);
+
+/** Передпліччя — кругла ланка від кисті (a) до краю малюнка (b). */
+const forearm = (ax, ay, bx, by) => path(`M${ax} ${ay} L${bx} ${by}`, 27, SKIN_D) + path(`M${ax} ${ay} L${bx} ${by}`, 23, tone(P3.skin, -0.06));
+
+/** Кисть на горизонтальній частині (долоні вперед — видно тильний бік і кісточки). */
+function fistOnBar(cx, cy) {
+  return forearm(cx, cy + 8, cx + 4, 190)
+    + el('rect', { x: cx - 25, y: cy - 17, width: 50, height: 34, rx: 11, fill: SKIN_P, stroke: SKIN_D, 'stroke-width': 2 })
+    + [-12.5, 0, 12.5].map((dx) => el('line', { x1: cx + dx, y1: cy - 15, x2: cx + dx, y2: cy - 3, stroke: SKIN_D, 'stroke-width': 2, 'stroke-linecap': 'round' })).join('')
+    + el('ellipse', { cx: cx - 22, cy: cy + 9, rx: 8, ry: 6, fill: SKIN_P, stroke: SKIN_D, 'stroke-width': 1.6 });
 }
+/** Кисть на вертикальній частині (долоні одна до одної — пальці обхоплюють ручку збоку). */
+function fistOnPost(cx, cy) {
+  return forearm(cx + 6, cy + 4, cx + 70, cy + 38)
+    + el('rect', { x: cx - 17, y: cy - 24, width: 34, height: 48, rx: 11, fill: SKIN_P, stroke: SKIN_D, 'stroke-width': 2 })
+    + [-11, 0, 11].map((dy) => el('line', { x1: cx - 15, y1: cy + dy, x2: cx - 4, y2: cy + dy, stroke: SKIN_D, 'stroke-width': 2, 'stroke-linecap': 'round' })).join('')
+    + el('ellipse', { cx: cx + 2, cy: cy - 25, rx: 7, ry: 6, fill: SKIN_P, stroke: SKIN_D, 'stroke-width': 1.6 });
+}
+
+/** PICKER «Хват» для ручки-Г; plate — колір млинця на важелі. */
+function lGripPicker(plate) {
+  return (value, adj) => {
+    const opts = (adj.options || []).filter((o) => !o.deleted);
+    const sel = opts.find((o) => o.id === value) || null;
+    const pic = [];
+    const out = [];
+    // важіль з млинцем і кронштейн ручки
+    pic.push(el('circle', { cx: 326, cy: 38, r: 30, fill: plate, stroke: tone(plate, -0.45), 'stroke-width': 2 })
+      + el('circle', { cx: 326, cy: 38, r: 20, fill: 'none', stroke: tone(plate, 0.18), 'stroke-width': 2 })
+      + el('circle', { cx: 326, cy: 38, r: 7, fill: P3.metal, stroke: tone(P3.metal, -0.45) }));
+    pic.push(el('rect', { x: 132, y: 24, width: 196, height: 28, rx: 14, fill: P3.orange, stroke: tone(P3.orange, -0.4), 'stroke-width': 1.5 })
+      + el('rect', { x: 140, y: 42, width: 180, height: 7, rx: 3.5, fill: tone(P3.orange, -0.18) }));
+    pic.push(el('rect', { x: 278, y: 46, width: 16, height: 46, rx: 3, fill: FR }));
+    // ручка-Г (гума), торець металевий
+    pic.push(path(L_HANDLE, 23, tone(P3.rubber, -0.3)) + path(L_HANDLE, 19, P3.rubber)
+      + path('M286 92 L134 92', 3, tone(P3.rubber, 0.35), { opacity: 0.8 })
+      + el('rect', { x: 94, y: 180, width: 24, height: 9, rx: 3, fill: P3.metal, stroke: tone(P3.metal, -0.45) }));
+    // дві зони хвату — кожна кнопка; обидві підсвічені, вибрана — яскраво й з кистю
+    for (const o of opts) {
+      const z = L_ZONES[o.id];
+      if (!z) continue;
+      const on = !!sel && sel.id === o.id;
+      pic.push(el('g', { 'data-pick': o.id, 'data-grip-zone': o.id, class: on ? 'pk is-on' : 'pk', 'aria-label': `${adj.label}: ${o.label}` },
+        el('title', {}, esc(`${o.label} — ${z.how}`))
+        + path(z.d, 44, z.color, { opacity: on ? 0.3 : 0.14 })
+        + path(z.d, on ? 10 : 7, z.color, { opacity: on || !sel ? 1 : 0.5 })));
+    }
+    if (sel && sel.id === 'pos-1') pic.push(fistOnBar(206, 98));
+    if (sel && sel.id === 'pos-2') pic.push(fistOnPost(106, 152));
+    out.push(el('g', { transform: 'translate(-24 0)' }, pic.join('')));
+    // назви й як тримати — під малюнком, кнопками
+    const gap = 8;
+    const n = Math.max(1, opts.length);
+    const w = (340 - gap * (n - 1)) / n;
+    opts.forEach((o, i) => {
+      const on = !!sel && sel.id === o.id;
+      const z = L_ZONES[o.id];
+      const color = z ? z.color : ACC;
+      const x = r1(10 + i * (w + gap));
+      out.push(el('g', { 'data-pick': o.id, class: on ? 'pk is-on' : 'pk', 'aria-label': `${adj.label}: ${o.label}` },
+        el('title', {}, esc(z ? `${o.label} — ${z.how}` : o.label))
+        + el('rect', { x, y: 200, width: r1(w), height: 54, rx: 14, fill: on ? color : '#ffffff', stroke: color, 'stroke-width': on ? 3 : 2 })
+        + el('circle', { cx: x + 18, cy: 220, r: 8, fill: on ? '#ffffff' : color })
+        + text(x + 32, 225.5, o.label, { 'font-size': fit(o.label, w - 40, 16), 'font-weight': on ? 800 : 700, fill: on ? '#ffffff' : C.ink })
+        + (z ? text(x + 12, 245, z.how, { 'font-size': fit(z.how, w - 20, 12.5), fill: on ? '#ffffff' : C.muted }) : '')));
+    });
+    return pickerSvg(360, 262, `${adj.label}: ручка буквою Г — за яку частину брати`, out.join(''));
+  };
+}
+
+/** Ручка-Г у 3D: від важеля (a) горизонтально до кута (b), далі вниз (c). */
+function lHandle(S, a, b, c) {
+  grip(S, [a, b, c], { w: 5 });
+}
+
+// ======================================================================
+// №14 Жим у тренажері сидячи (плечі, диски) — фото gym/my-photos/zhym-sydyachy-*.png і сайту 14:
+// сидіння між двома похилими стійками, на них осі помаранчевих важелів з ручками-Г біля плечей і
+// млинцями; жим угору. Регулювання: хват (ручка-Г, 2 варіанти) і висота сидіння.
+// ======================================================================
 const plateShoulderPress = artModule({
   id: 'plate-shoulder-press',
   ADJUSTMENTS: ['grip-pos', 'seat'],
   HINTS: SEAT_HINTS,
   PICKERS: {
-    'grip-pos': (value, adj) => optionCards(value, adj, shoulderGripArt, `${adj.label}: де брати ручку`),
+    'grip-pos': lGripPicker(P3.plateGreen),
     seat: heightPicker('seat', SEAT_HINTS),
   },
   build(exerciseId, mini) {
@@ -803,15 +853,15 @@ const plateShoulderPress = artModule({
     for (const s of [-1, 1]) {
       box(S, [s * 50 - 6, -38, 108], [s * 50 + 6, -26, 120], FR);
       beams(S, [[s * 50, -32, 114], [s * 47, 4, 120], [s * 46, 19, 121]], 7, 7, P3.orange);
-      grip(S, SP['pos-1'](s));
-      beam(S, [s * 46, 17, 121], [s * 39, 17, 121], 4, 4, P3.orange);
-      grip(S, SP['pos-2'](s));
+      // ручка-Г перед важелем: горизонтально всередину, на куті — вниз
+      box(S, [s * 47 - 2, 17, 118], [s * 47 + 2, 22, 124], FR);
+      lHandle(S, [s * 48, 22, 121], [s * 29, 22, 121], [s * 31, 23, 101]);
       plateOn(S, [s * 60, 4, 124], [s, 0, 0], 20, P3.plateGreen);
     }
-    S.mark('grip-pos', [44, 8, 122]);
+    S.mark('grip-pos', [40, 22, 121]);
     human(S, {
       pelvis: [0, -6, SEAT_TOP + 9],
-      hand: (s) => [s * 34, 6, 119],
+      hand: (s) => [s * 36, 22, 121],
       elbowPole: (s) => [s, 0.25, -1],
       ...seatedLegs(42, 20),
     });
@@ -992,62 +1042,53 @@ const cableCurl = artModule({
 });
 
 // ======================================================================
-// №21 Вертикальна тяга (диски, SHUA) — фото сайту 21: похила колона попереду, на осі вгорі два
-// помаранчеві важелі: спереду млинці, ззаду над головою ручки; стегна під притискними валиками.
-// Регулювання: позиція ручки («Ширше» — на кінці важеля, «Вужче» — ближче до середини) і валік.
+// №21 Вертикальна тяга (диски, SHUA) — за фото із залу gym/my-photos/vertykalna-tyaga-zal.png:
+// попереду похила колона, на ній вісь; від осі назад над головою — два широкі помаранчеві важелі
+// з ручками-Г на кінцях, уперед — короткі плечі з млинцями. Людина сидить низько обличчям до
+// колони, притискний валік лежить на колінах. Регулювання: хват (ручка-Г) і притискний валік.
 // ======================================================================
-const LP = {
-  'pos-1': (s) => [[s * 44, -4, 168], [s * 46, -4, 148]],
-  'pos-2': (s) => [[s * 30, 16, 175], [s * 29, 16, 156]],
-};
-function pulldownGripArt(id, on) {
-  if (!LP[id]) return '';
-  const color = on ? ACC : '#9aa5a1';
-  const bar = el('path', { d: 'M60 20 L16 34 M60 20 L104 34', stroke: P3.orange, 'stroke-width': 10, 'stroke-linecap': 'round' })
-    + el('rect', { x: 54, y: 10, width: 12, height: 16, rx: 3, fill: FR });
-  const handle = (x1, y1, x2, y2, me) => el('path', {
-    d: `M${x1} ${y1} L${x2} ${y2}`, stroke: me ? color : '#c8d0cc', 'stroke-width': me ? 10 : 7, 'stroke-linecap': 'round',
-  });
-  return bar
-    + handle(16, 34, 12, 80, id === 'pos-1') + handle(104, 34, 108, 80, id === 'pos-1')
-    + handle(38, 27, 38, 70, id === 'pos-2') + handle(82, 27, 82, 70, id === 'pos-2');
-}
 export const leverPulldown = artModule({
   id: 'lever-pulldown',
   ADJUSTMENTS: ['grip-pos', 'roller'],
   HINTS: ROLLER_HINTS,
   PICKERS: {
-    'grip-pos': (value, adj) => optionCards(value, adj, pulldownGripArt, `${adj.label}: де брати ручку`),
+    'grip-pos': lGripPicker(P3.plate),
     roller: heightPicker('roller', ROLLER_HINTS),
   },
   build(exerciseId, mini) {
-    const S = scene3d({ yaw: 52, pitch: 20, mini });
-    floorShadow(S, 0, 22, 70, 82);
-    beam(S, [0, -34, 3], [0, 92, 3], 8, 6, FR);
-    beam(S, [-38, 88, 3], [38, 88, 3], 8, 6, FR);
-    beam(S, [-32, -32, 3], [32, -32, 3], 8, 6, FR);
-    beam(S, [0, 84, 2], [0, 52, 186], 11, 11, FR);
-    box(S, [-18, 44, 184], [18, 54, 194], FR);
-    seatOnPost(S, { y: -2, top: SEAT_TOP, pin: false });
-    // притискний валік над стегнами
-    beam(S, [0, 34, 3], [0, 28, 70], 7, 7, FR);
-    tube(S, [[-24, 24, 76], [24, 24, 76]], 3.6, P3.metal);
-    for (const s of [-1, 1]) tube(S, [[s * 5, 24, 76], [s * 23, 24, 76]], 12, P3.pad, { shine: false });
-    S.mark('roller', [24, 24, 76]);
+    const S = scene3d({ yaw: 40, pitch: 22, mini });
+    floorShadow(S, 0, 30, 70, 86);
+    // основа: поздовжня балка й поперечки
+    beam(S, [0, -36, 3], [0, 102, 3], 8, 6, FR);
+    beam(S, [-36, -34, 3], [36, -34, 3], 8, 6, FR);
+    beam(S, [-44, 98, 3], [44, 98, 3], 9, 7, FR);
+    // похила колона попереду, вилка з віссю вгорі
+    beam(S, [0, 100, 3], [0, 66, 140], 12, 12, FR);
+    beam(S, [0, 84, 3], [0, 72, 60], 8, 8, FR);
+    box(S, [-15, 58, 136], [15, 72, 150], FR);
+    tube(S, [[-21, 64, 144], [21, 64, 144]], 4, P3.metal);
+    seatOnPost(S, { y: -4, top: SEAT_TOP - 2, pin: false });
+    // притискний валік на колінах: кронштейн від колони
+    beams(S, [[0, 74, 40], [0, 44, 58], [0, 34, 66]], 7, 7, FR);
+    tube(S, [[-25, 34, 67], [25, 34, 67]], 3.6, P3.metal);
+    for (const s of [-1, 1]) tube(S, [[s * 5, 34, 67], [s * 24, 34, 67]], 13, P3.rubber, { shine: false });
+    S.mark('roller', [25, 34, 67]);
     for (const s of [-1, 1]) {
-      beams(S, [[s * 22, 80, 180], [s * 14, 49, 190], [s * 44, -4, 168]], 7, 6, P3.orange);
-      plateOn(S, [s * 32, 80, 180], [s, 0, 0], 21);
-      grip(S, LP['pos-1'](s));
-      grip(S, LP['pos-2'](s));
+      const pivot = [s * 17, 64, 144];
+      // важіль назад над головою (широкий, вигнутий) і коротке плече вперед з млинцем
+      tube(S, [[s * 20, 92, 155], pivot, [s * 24, 46, 154], [s * 31, 28, 159], [s * 37, 14, 159], [s * 44, 4, 156]], 9, P3.orange);
+      plateOn(S, [s * 32, 90, 154], [s, 0, 0], 21);
+      // ручка-Г: від кінця важеля всередину, на куті — вниз
+      lHandle(S, [s * 44, 6, 153], [s * 27, 6, 153], [s * 28, 7, 135]);
     }
-    S.mark('grip-pos', [44, -4, 168]);
+    S.mark('grip-pos', [37, 6, 153]);
     human(S, {
-      pelvis: [0, -4, SEAT_TOP + 9],
-      hand: (s) => [s * 45, -4, 153],
-      elbowPole: (s) => [s, -0.3, -0.4],
-      ...seatedLegs(46, 16),
+      pelvis: [0, -6, SEAT_TOP + 7],
+      hand: (s) => [s * 35, 6, 153],
+      elbowPole: (s) => [s, -0.3, -0.3],
+      ...seatedLegs(48, 16),
     });
-    return renderScene(S, 'Вертикальна тяга (тяга зверху вниз): ручки над головою, стегна під валиком');
+    return renderScene(S, 'Вертикальна тяга (тяга зверху вниз): ручки-Г над головою, валік на колінах', { maxH: 360 });
   },
 });
 
@@ -1207,6 +1248,102 @@ const latPulldown = artModule({
       ...seatedLegs(46, 16),
     });
     return renderScene(S, 'Тренажер «Тяга вертикального блоку»: ручка на тросі над головою, стегна під валиком');
+  },
+});
+
+// ======================================================================
+// «Турнік» (eq-bar) — перекладина на двох стійках; людина висить на прямих руках, ноги трохи зігнуті.
+// Регулювання «Хват» (мітка на перекладині): звичайний — долоні від себе, ширина плечей;
+// широкий — долоні від себе, ширше плечей; обратний — долоні до себе. Фото турніка в залі немає.
+// ======================================================================
+const BAR_Z = 226;
+// Кисті на перекладині для кожного хвату: півширина в сантиметрах і куди дивляться долоні.
+const BAR_GRIPS = {
+  normal: { half: 24, palms: 'away', how: ['долоні від себе', 'ширина плечей'] },
+  wide: { half: 44, palms: 'away', how: ['долоні від себе', 'ширше плечей'] },
+  reverse: { half: 20, palms: 'toward', how: ['долоні до себе', 'ширина плечей'] },
+};
+
+/** Кисть на перекладині (вигляд ззаду людини): away — видно тильний бік і кісточки, toward — пальці й долоню. */
+function barHand(id, x, y, side, palms) {
+  const parts = [];
+  if (palms === 'away') {
+    parts.push(el('rect', { x: x - 9, y: y - 9, width: 18, height: 20, rx: 6, fill: SKIN_P, stroke: SKIN_D, 'stroke-width': 1.4 }));
+    for (const dx of [-4.5, 0, 4.5]) parts.push(el('line', { x1: x + dx, y1: y - 8, x2: x + dx, y2: y - 2, stroke: SKIN_D, 'stroke-width': 1.4, 'stroke-linecap': 'round' }));
+    // великий палець — з внутрішнього боку під перекладиною
+    parts.push(el('ellipse', { cx: x - side * 8, cy: y + 7, rx: 4.5, ry: 3.4, fill: SKIN_P, stroke: SKIN_D, 'stroke-width': 1.2 }));
+  } else {
+    parts.push(el('rect', { x: x - 9, y: y - 9, width: 18, height: 20, rx: 6, fill: tone(SKIN_P, 0.22), stroke: SKIN_D, 'stroke-width': 1.4 }));
+    for (const dy of [-5, -1, 3]) parts.push(el('line', { x1: x - 7, y1: y + dy, x2: x + 7, y2: y + dy, stroke: SKIN_D, 'stroke-width': 1.3, 'stroke-linecap': 'round' }));
+    // великий палець — із зовнішнього боку
+    parts.push(el('ellipse', { cx: x + side * 9, cy: y - 5, rx: 3.4, ry: 4.5, fill: SKIN_P, stroke: SKIN_D, 'stroke-width': 1.2 }));
+  }
+  return el('g', { 'data-hand-grip': id }, parts.join(''));
+}
+
+/** PICKER «Хват» турніка: три картки одна під одною, на кожній — перекладина, плечі й дві кисті. */
+function barGripPicker(value, adj) {
+  const opts = (adj.options || []).filter((o) => !o.deleted);
+  const cardH = 80;
+  const gap = 8;
+  const H = 8 + opts.length * (cardH + gap);
+  const out = opts.map((o, i) => {
+    const on = value === o.id;
+    const g = BAR_GRIPS[o.id];
+    const y = 8 + i * (cardH + gap);
+    const parts = [];
+    parts.push(el('rect', { x: 8, y, width: 344, height: cardH, rx: 14, fill: on ? '#e7f0fa' : '#ffffff', stroke: on ? ACC : '#c5cdc9', 'stroke-width': on ? 3 : 1.5 }));
+    // перекладина
+    const by = y + 20;
+    parts.push(el('line', { x1: 18, y1: by, x2: 226, y2: by, stroke: tone(P3.metal, -0.5), 'stroke-width': 9, 'stroke-linecap': 'round' })
+      + el('line', { x1: 18, y1: by, x2: 226, y2: by, stroke: P3.metal, 'stroke-width': 6, 'stroke-linecap': 'round' }));
+    // людина ззаду: голова, плечі, руки до перекладини
+    const cx = 122;
+    const shY = y + 64;
+    if (g) {
+      const k = 1.15;
+      for (const s of [-1, 1]) {
+        const hx = cx + s * g.half * k;
+        parts.push(el('line', { x1: cx + s * 18, y1: shY, x2: hx, y2: by + 8, stroke: P3.shirt, 'stroke-width': 9, 'stroke-linecap': 'round' }));
+        parts.push(el('line', { x1: r1(cx + s * 18 + (hx - cx - s * 18) * 0.55), y1: r1(shY + (by + 8 - shY) * 0.55), x2: hx, y2: by + 8, stroke: SKIN_P, 'stroke-width': 7, 'stroke-linecap': 'round' }));
+      }
+      parts.push(el('path', { d: `M${cx - 24} ${y + cardH - 2} L${cx - 22} ${shY - 4} Q${cx} ${shY - 10} ${cx + 22} ${shY - 4} L${cx + 24} ${y + cardH - 2} Z`, fill: P3.shirt }));
+      parts.push(el('circle', { cx, cy: shY - 14, r: 10, fill: P3.hair }));
+      for (const s of [-1, 1]) parts.push(barHand(o.id, r1(cx + s * g.half * k), by, s, g.palms));
+    }
+    parts.push(text(240, y + 30, o.label, { 'font-size': fit(o.label, 104, 16), 'font-weight': on ? 800 : 700, fill: on ? ACC : C.ink }));
+    if (g) g.how.forEach((line, j) => parts.push(text(240, y + 50 + j * 16, line, { 'font-size': 12.5, fill: on ? ACC : C.muted })));
+    return pickG(o.id, on, `${adj.label}: ${o.label}`, parts.join(''));
+  });
+  return pickerSvg(360, H, `${adj.label}: як брати перекладину`, out.join(''));
+}
+
+const pullupBar = artModule({
+  id: 'pullup-bar',
+  ADJUSTMENTS: ['grip'],
+  PICKERS: { grip: barGripPicker },
+  build(exerciseId, mini) {
+    const S = scene3d({ yaw: 30, pitch: 18, mini });
+    floorShadow(S, 0, 0, 84, 50);
+    for (const s of [-1, 1]) {
+      // стійка з опорою на підлозі
+      beam(S, [s * 62, -40, 3], [s * 62, 40, 3], 9, 6, FR);
+      beam(S, [s * 62, 0, 0], [s * 62, 0, BAR_Z + 12], 10, 10, FR);
+      beam(S, [s * 62, -30, 3], [s * 62, -2, 70], 6, 6, FR, { kind: 'detail' });
+      beam(S, [s * 62, 30, 3], [s * 62, 2, 70], 6, 6, FR, { kind: 'detail' });
+      box(S, [s * 62 - 7, -6, BAR_Z - 6], [s * 62 + 7, 6, BAR_Z + 6], FR);
+    }
+    tube(S, [[-60, 0, BAR_Z], [60, 0, BAR_Z]], 4.2, P3.metal);
+    S.mark('grip', [0, 0, BAR_Z]);
+    // висить на прямих руках, хват звичайний (ширина плечей)
+    human(S, {
+      pelvis: [0, -2, BAR_Z - 98],
+      hand: (s) => [s * 24, 0, BAR_Z - 1],
+      elbowPole: (s) => [s, -0.4, 0],
+      ankle: (s) => [s * 9, -24, BAR_Z - 176], kneePole: () => [0, 1, 0.1],
+      toe: () => [0, 0.5, -1],
+    });
+    return renderScene(S, 'Турнік: людина висить на перекладині, підтягування', { maxH: 400 });
   },
 });
 
@@ -1392,5 +1529,5 @@ const DUMBBELLS = [
 
 export const SCHEMES = [
   plateChestPress, lateralRaise, plateShoulderPress, abStation, assistedDip, assistedPullup,
-  tricepsPress, cableCurl, leverPulldown, leverRow, cablePull, latPulldown, ...DUMBBELLS,
+  tricepsPress, cableCurl, leverPulldown, leverRow, cablePull, latPulldown, pullupBar, ...DUMBBELLS,
 ];
