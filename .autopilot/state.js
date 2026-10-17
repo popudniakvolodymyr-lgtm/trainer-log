@@ -2,19 +2,19 @@ window.STATE =
 {
   "version": 2,
   "slug": "trainer-log",
-  "dir": "2026-10-17-trainer-log",
+  "dir": "2026-10-17-trainer-log--wip",
   "title": "Журнал фітнес-тренера",
   "mode": "semi",
   "depth": "normal",
   "tier": "T2",
-  "briefFile": "2026-10-17-brief-pravky-2.md",
+  "briefFile": "2026-10-18-brief-pravky-3.md",
   "memoryFile": "AGENTS.md",
   "memoryOwner": "autopilot",
   "skillDir": "C:/Антігравіті ресьорч/.claude/skills/autopilot",
   "baseCommit": "a3eeb4c",
   "startedAt": "2026-10-17T17:50:53+03:00",
-  "updatedAt": "2026-10-17T22:34:57+03:00",
-  "finishedAt": "2026-10-17T22:34:57+03:00",
+  "updatedAt": "2026-10-18T00:41:36+03:00",
+  "finishedAt": null,
   "stages": [
     {
       "id": "preflight",
@@ -25,51 +25,44 @@ window.STATE =
     {
       "id": "manifest",
       "status": "done",
-      "startedAt": "2026-10-17T21:35:18+03:00",
-      "finishedAt": "2026-10-17T21:35:25+03:00"
+      "startedAt": "2026-10-18T00:39:29+03:00",
+      "finishedAt": "2026-10-18T00:41:31+03:00"
     },
     {
       "id": "briefing",
       "status": "skipped",
-      "startedAt": "2026-10-17T21:35:23+03:00",
-      "finishedAt": "2026-10-17T21:35:23+03:00",
-      "note": "правки однозначні; два питання без відповіді — взято запропоноване"
+      "startedAt": "2026-10-18T00:39:35+03:00",
+      "finishedAt": "2026-10-18T00:39:35+03:00",
+      "note": "усе уточнено в діалозі"
     },
     {
       "id": "spec",
       "status": "done",
-      "startedAt": "2026-10-17T21:35:25+03:00",
-      "finishedAt": "2026-10-17T21:36:58+03:00"
+      "startedAt": "2026-10-18T00:41:31+03:00",
+      "finishedAt": "2026-10-18T00:41:33+03:00"
     },
     {
       "id": "plan",
-      "status": "done",
-      "startedAt": "2026-10-17T21:36:58+03:00",
-      "finishedAt": "2026-10-17T21:37:20+03:00"
+      "status": "active",
+      "startedAt": "2026-10-18T00:41:33+03:00"
     },
     {
       "id": "build",
-      "status": "done",
-      "startedAt": "2026-10-17T21:37:20+03:00",
-      "finishedAt": "2026-10-17T22:17:45+03:00"
+      "status": "pending"
     },
     {
       "id": "review",
-      "status": "done",
-      "startedAt": "2026-10-17T22:17:45+03:00",
-      "finishedAt": "2026-10-17T22:34:57+03:00"
+      "status": "pending"
     },
     {
       "id": "final",
-      "status": "done",
-      "finishedAt": "2026-10-17T22:34:57+03:00",
-      "startedAt": "2026-10-17T22:34:57+03:00"
+      "status": "pending"
     }
   ],
   "requirements": {
-    "total": 80,
+    "total": 88,
     "done": 80,
-    "inTicket": 0,
+    "inTicket": 8,
     "inSpec": 0,
     "placeholder": 0,
     "deferred": 0,
@@ -492,6 +485,106 @@ window.STATE =
       "commit": "3f71efc"
     },
     {
+      "id": "11",
+      "title": "Дві ноги / одна нога, каталог v4, «Змінити роль»",
+      "requirements": [
+        "G33",
+        "G36",
+        "G38",
+        "G39",
+        "G32"
+      ],
+      "blockedBy": [],
+      "wave": 10,
+      "zone": [
+        "src/core/model.js",
+        "src/core/catalog.js",
+        "src/core/chartdata.js",
+        "src/ui/log-form.js",
+        "src/ui/log-data.js",
+        "src/ui/settings.js",
+        "src/ui/start.js",
+        "src/store.js",
+        "test/model.test.js",
+        "test/catalog.test.js",
+        "test/migration.test.js",
+        "test/chartdata.test.js",
+        "test/role.test.js"
+      ],
+      "review": "да — дані користувача і скидання сховища",
+      "model": "сильная",
+      "status": "pending",
+      "retries": 0,
+      "repairs": 0
+    },
+    {
+      "id": "12",
+      "title": "«Сьогодні» і «Календар» у картці клієнта",
+      "requirements": [
+        "G37"
+      ],
+      "blockedBy": [
+        "11"
+      ],
+      "wave": 11,
+      "zone": [
+        "src/ui/client.js",
+        "src/ui/today.js",
+        "src/ui/calendar.js",
+        "css/screens.css",
+        "sw.js",
+        "test/today.test.js"
+      ],
+      "review": "нет",
+      "model": "обычная",
+      "status": "pending",
+      "retries": 0,
+      "repairs": 0
+    },
+    {
+      "id": "13",
+      "title": "«Згинання ніг» і «Розгинання ніг»: схеми й вікна вибору",
+      "requirements": [
+        "G32",
+        "G34",
+        "G35"
+      ],
+      "blockedBy": [
+        "11"
+      ],
+      "wave": 11,
+      "zone": [
+        "src/schemes/legs.js",
+        "test/schemes-legs.test.js"
+      ],
+      "review": "нет",
+      "model": "сильная",
+      "status": "pending",
+      "retries": 0,
+      "repairs": 0
+    },
+    {
+      "id": "14",
+      "title": "Ручки-Г і турнік: схеми й вікна вибору",
+      "requirements": [
+        "G36",
+        "G38"
+      ],
+      "blockedBy": [
+        "11"
+      ],
+      "wave": 11,
+      "zone": [
+        "src/schemes/upper.js",
+        "test/schemes-upper.test.js"
+      ],
+      "review": "нет",
+      "model": "сильная",
+      "status": "pending",
+      "retries": 0,
+      "repairs": 0
+    },
+    {
       "id": "F1",
       "title": "Ремонт гілки за код-рев'ю",
       "requirements": [
@@ -542,10 +635,10 @@ window.STATE =
       "review": "да — ремонт ветки",
       "model": "сильная",
       "status": "done",
-      "retries": 0,
-      "repairs": 0,
       "startedAt": "2026-10-17T22:29:48+03:00",
       "finishedAt": "2026-10-17T22:34:46+03:00",
+      "retries": 0,
+      "repairs": 0,
       "tests": {
         "passed": 173,
         "failed": 0
@@ -590,11 +683,7 @@ window.STATE =
     "test/migration.test.js:189 — фікстура V2 будується тим самим кодом, що seedV2",
     "src/schemes/index.js renderScheme — компонування (мітка → панель → збереження) без автотесту"
   ],
-  "blind": {
-    "checked": 15,
-    "matched": 15,
-    "mismatches": []
-  },
+  "blind": null,
   "beats": [
     "2026-10-17T17:50:53+03:00",
     "2026-10-17T17:51:10+03:00",
@@ -692,9 +781,17 @@ window.STATE =
     "2026-10-17T22:34:03+03:00",
     "2026-10-17T22:34:46+03:00",
     "2026-10-17T22:34:48+03:00",
-    "2026-10-17T22:34:57+03:00"
+    "2026-10-17T22:34:57+03:00",
+    "2026-10-18T00:39:29+03:00",
+    "2026-10-18T00:39:31+03:00",
+    "2026-10-18T00:39:33+03:00",
+    "2026-10-18T00:39:35+03:00",
+    "2026-10-18T00:41:31+03:00",
+    "2026-10-18T00:41:33+03:00",
+    "2026-10-18T00:41:35+03:00",
+    "2026-10-18T00:41:36+03:00"
   ],
-  "rev": 98,
+  "rev": 106,
   "waiting": null,
   "waits": [
     {
@@ -1408,6 +1505,55 @@ window.STATE =
       "t": "2026-10-17T22:34:57+03:00",
       "k": "finish",
       "result": "Друга черга правок: схеми 45° для всіх тренажерів і кардіо, чисті схеми зі списком значень, значки в меню, навігація «назад»"
+    },
+    {
+      "t": "2026-10-18T00:39:29+03:00",
+      "k": "reopen"
+    },
+    {
+      "t": "2026-10-18T00:39:33+03:00",
+      "k": "stage",
+      "id": "manifest",
+      "act": "start"
+    },
+    {
+      "t": "2026-10-18T00:39:35+03:00",
+      "k": "stage",
+      "id": "briefing",
+      "act": "skip",
+      "note": "усе уточнено в діалозі"
+    },
+    {
+      "t": "2026-10-18T00:41:31+03:00",
+      "k": "gate",
+      "g": "G1",
+      "ok": true,
+      "open": 0,
+      "total": 88
+    },
+    {
+      "t": "2026-10-18T00:41:31+03:00",
+      "k": "stage",
+      "id": "spec",
+      "act": "start"
+    },
+    {
+      "t": "2026-10-18T00:41:33+03:00",
+      "k": "stage",
+      "id": "plan",
+      "act": "start"
+    },
+    {
+      "t": "2026-10-18T00:41:35+03:00",
+      "k": "tickets",
+      "n": 16
+    },
+    {
+      "t": "2026-10-18T00:41:36+03:00",
+      "k": "gate",
+      "g": "G3",
+      "ok": true,
+      "problems": 0
     }
   ],
   "reqList": [
@@ -1810,28 +1956,62 @@ window.STATE =
       "id": "G31",
       "text": "«мене повертає не в ту позицію на низ сторінки біля гантель а на самий початок сторінки»",
       "status": "done"
+    },
+    {
+      "id": "G32",
+      "text": "«Згинання ніг лежачи»: «додай позиції валика ще і лавка … наче сходинкою, вирівняй»; «тут регулюється і валик і сам важіль»",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G33",
+      "text": "Жим ногами / Гак-машина: «платформа суцільна, там нема правої і лівої ноги, але іноді вправу виконують одною ногою, тож зроби перемикач»",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G34",
+      "text": "«Розгинання ніг»: «схема валіка не коректна» (+ фото Impulse)",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G35",
+      "text": "«Розгинання ніг»: «спинка у тебе на схемі тоже не дуже зрозуміло відображається»",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G36",
+      "text": "Вертикальна тяга: «ручка букою Г і ти руками берешся або прямо або під кутом 90»; Жим сидячи: «тут тоже ручка буквою Г і берешся або так або так»",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G37",
+      "text": "«перемикання на вікно \"сьогоднішнє тренування\" … список виконаних за день вправ, + календар … що ми робили минулого тренування»",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G38",
+      "text": "«до турніка намалюй схему і точку вибора додай хват, звичайний, широкий, обратний»",
+      "status": "in-ticket"
+    },
+    {
+      "id": "G39",
+      "text": "«нема кнопки вийти … як мені розлогінитись і ввійти як гість»",
+      "status": "in-ticket"
     }
   ],
   "gates": {
     "G1": {
       "ok": true,
-      "at": "2026-10-17T21:35:25+03:00",
+      "at": "2026-10-18T00:41:31+03:00",
       "open": 0,
-      "total": 80
+      "total": 88
     },
     "G3": {
       "ok": true,
-      "at": "2026-10-17T22:29:47+03:00",
+      "at": "2026-10-18T00:41:36+03:00",
       "problems": 0
-    },
-    "G4": {
-      "ok": true,
-      "at": "2026-10-17T22:23:49+03:00",
-      "checked": 15,
-      "matched": 15
     }
   },
-  "result": "Друга черга правок: схеми 45° для всіх тренажерів і кардіо, чисті схеми зі списком значень, значки в меню, навігація «назад»",
+  "result": null,
   "report": [
     "У день, коли і тренер, і клієнт записали ту саму вправу, історія показує цю дату двома рядками (нічого не губиться)",
     "Сховище і операції над записами не мають автоматичних тестів — перевірені вручну в браузері",

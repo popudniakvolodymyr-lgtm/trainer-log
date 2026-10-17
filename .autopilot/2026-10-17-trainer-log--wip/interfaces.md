@@ -172,3 +172,9 @@ renderScheme(container, equipment, exerciseId, values, {onPick(adjustmentId)})
 - catalog: `CATALOG_VERSION=3`, `eq-cardio.schemeId="cardio"`; `upgradeEquipment` порівнює запис з каталогом його версії — наступна версія каталогу має зберегти точну копію v2/v3. `cardio.js` — `SCHEMES=[]`; у `test/schemes.test.js` cardio пропускається через `PENDING` — таск 10 прибирає. `sw.js` `CACHE_VERSION=5`.
 - Поки 09/10 не перевели модуль, старий `draw` малює свої бейджі, а список під ним дублює значення — тимчасово.
 - **Правило id у SVG (обов'язково для 09/10):** значки й схеми вставляються інлайн, десятки в одному DOM. Будь-який `id` в `art` (градієнти, clipPath у `<defs>`) — з префіксом `<schemeId>-` і з суфіксом `-mini` для `art({mini:true})`; посилання `url(#…)` — на ці ж префіксовані id. Без префікса id не вживати.
+
+## Межі третьої черги (таски 11–14)
+
+- Таск 11 (дані): новий `weightMode: 'legs'` для eq-04, eq-08: Set `{reps, weight, leg: null|'left'|'right'}`; старі сети `{reps,left,right}` на цих тренажерах читаються й форматуються як були. `CATALOG_VERSION` 4 (заморожена копія v3 для міграції): eq-07 регулювання `lever` (5⚠) і `roller` (5⚠); eq-21 і eq-14 — `grip-pos` з варіантами `pos-1` «Прямий», `pos-2` «Під 90°»; `eq-bar` — `schemeId: "pullup-bar"`, регулювання `grip` з варіантами `normal` «Звичайний», `wide` «Широкий», `reverse` «Обратний». «Змінити роль» у налаштуваннях і на старті.
+- Таск 12 (картка): вкладки «Тренажери / Сьогодні / Календар» у `src/ui/client.js` + нові `src/ui/today.js`, `src/ui/calendar.js`; він же єдиний, хто в хвилі 11 чіпає `sw.js` (PRECACHE нових файлів, `CACHE_VERSION`).
+- Таск 13: `src/schemes/legs.js` — eq-07 (MARKERS для `lever`, `roller`), eq-10 (PICKERS дисками й рейкою). Таск 14: `src/schemes/upper.js` — eq-21 (перемалювати), eq-14, новий модуль `pullup-bar`.
