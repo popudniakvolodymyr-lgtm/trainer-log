@@ -43,7 +43,7 @@ function historyView(weightMode, sessions, onEdit) {
         class: 'history-set', type: 'button', 'aria-label': `Змінити підхід ${i + 1}`,
         onclick: () => onEdit(session, i),
       }, h('span', { class: 'history-n' }, `${i + 1}.`), h('span', { class: 'history-text' }, formatSet(weightMode, set)),
-      h('span', { class: 'history-edit', 'aria-hidden': 'true' }, '✎')))))));
+      h('span', { class: 'history-edit', 'aria-hidden': 'true' }, '✎'))))))));
 }
 
 export async function renderExercise(container, ctx) {
