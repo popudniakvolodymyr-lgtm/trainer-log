@@ -35,6 +35,37 @@ export function homeFor(meta) {
   return '#/start';
 }
 
+const EXERCISE_HASH = /^#\/client\/([^/]+)\/eq\/([^/]+)(?:\/([^/]+))?$/;
+const CLIENT_HASH = /^#\/client\/([^/]+)$/;
+
+/**
+ * Куди веде «назад» з екрана (Q5) або null — ціль не задана (звичайний крок історії).
+ * Екран тренажера (будь-яка вкладка) → меню картки клієнта; картка → список клієнтів (тренер).
+ */
+export function backTarget(hash, meta) {
+  const ex = EXERCISE_HASH.exec(hash || '');
+  if (ex) return `#/client/${ex[1]}`;
+  if (CLIENT_HASH.test(hash || '') && meta.role === 'trainer') return '#/clients';
+  return null;
+}
+
+/**
+ * Що робить стрілка «назад». prevHash — екран, з якого прийшли на цей крок історії (або null).
+ * → {back:true} — history.back(); {replace: hash} — замінити поточний крок (без нового кроку).
+ */
+export function backStep(hash, meta, prevHash) {
+  const target = backTarget(hash, meta);
+  if (target) return prevHash === target ? { back: true } : { replace: target };
+  return prevHash ? { back: true } : { replace: homeFor(meta) };
+}
+
+/** Перехід між вкладками вправ того самого тренажера тієї самої картки — без нового кроку історії. */
+export function isTabSwitch(fromHash, toHash) {
+  const a = EXERCISE_HASH.exec(fromHash || '');
+  const b = EXERCISE_HASH.exec(toHash || '');
+  return !!(a && b && a[1] === b[1] && a[2] === b[2]);
+}
+
 function match(hash) {
   for (const r of routes) {
     const m = r.pattern.exec(hash);
@@ -60,6 +91,23 @@ function fallbackFor(meta) {
 
 let store = null;
 let renderId = 0;
+let lastHash = null; // екран попереднього рендеру — для history.state.prev
+
+/** Новий крок історії запам'ятовує, звідки на нього прийшли (history.state.prev). */
+function rememberPrev() {
+  const st = history.state;
+  if (st && typeof st === 'object' && 'prev' in st) return;
+  const prev = lastHash && lastHash !== location.hash ? lastHash : null;
+  history.replaceState({ ...(st && typeof st === 'object' ? st : {}), prev }, '');
+}
+
+/** Стрілка «назад» у шапці. */
+function goBack(meta) {
+  const prev = history.state && typeof history.state === 'object' ? history.state.prev : null;
+  const step = backStep(location.hash, meta, prev || null);
+  if (step.back) history.back();
+  else location.replace(step.replace);
+}
 const view = () => document.getElementById('view');
 const topbar = () => document.getElementById('topbar');
 
@@ -74,7 +122,7 @@ function renderTopbar(meta, route) {
   mount(topbar(),
     route.bare ? null : h('button', {
       class: 'btn-icon', type: 'button', 'aria-label': 'Назад', disabled: atHome,
-      onclick: () => (history.length > 1 ? history.back() : navigate(home)),
+      onclick: () => goBack(meta),
     }, '‹'),
     h('a', { class: 'topbar-title', href: home }, 'Журнал тренера'),
     route.bare ? null : h('a', {
@@ -106,9 +154,12 @@ async function render() {
 
   // Екран малюється в окремий корінь; у #view він потрапляє, лише якщо за час
   // await не почався новіший рендер (інакше застарілий результат відкидається).
+  rememberPrev();
   const container = h('div', { class: 'screen-root' });
+  // Екран може повернути { scrollY } — куди прокрутити після вставки (повернення в меню, Q6).
+  let shown = null;
   try {
-    await route.render(container, { store, meta, params, navigate, rerender: render });
+    shown = await route.render(container, { store, meta, params, navigate, rerender: render });
   } catch (err) {
     console.error(err);
     mount(container, h('div', { class: 'screen' },
@@ -121,7 +172,9 @@ async function render() {
   v.dataset.screen = route.name;
   mount(v, container);
   v.focus({ preventScroll: true });
-  window.scrollTo(0, 0);
+  const y = shown && Number.isFinite(shown.scrollY) ? shown.scrollY : 0;
+  window.scrollTo(0, y);
+  lastHash = location.hash;
 }
 
 function registerServiceWorker() {
@@ -139,9 +192,11 @@ async function main() {
       h('p', null, 'Браузер не дозволяє зберігати дані. Відкрийте програму у звичайному (не приватному) вікні Safari або Chrome.')));
     return;
   }
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
   window.addEventListener('hashchange', render);
   await render();
   registerServiceWorker();
 }
 
-main();
+// У node (тести nav.test.js) лише чисті функції маршрутів — без запуску програми.
+if (typeof document !== 'undefined') main();

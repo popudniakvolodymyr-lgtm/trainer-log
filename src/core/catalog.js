@@ -23,7 +23,8 @@ export const HANDLE_ADJUSTMENT = Object.freeze({
 });
 
 /** Версія стартового каталогу; запис із меншою catalogVersion оновлює upgradeEquipment. */
-export const CATALOG_VERSION = 2;
+// 1 — перший засів; 2 — правки (П1–П9); 3 — кардіо отримує схему «cardio» (Q8).
+export const CATALOG_VERSION = 3;
 
 const pad2 = (n) => String(n).padStart(2, '0');
 
@@ -180,7 +181,7 @@ export function seedEquipment() {
   }
   list.push(
     extra('eq-bar', 'Турнік', 'bar', 'bodyweight', ['Підтягування'], null, CATALOG_VERSION),
-    extra('eq-cardio', 'Кардіо', 'cardio', 'cardio', ['Бігова доріжка', 'Велотренажер', 'Еліпс'], null, CATALOG_VERSION),
+    extra('eq-cardio', 'Кардіо', 'cardio', 'cardio', ['Бігова доріжка', 'Велотренажер', 'Еліпс'], 'cardio', CATALOG_VERSION),
   );
   return list;
 }
@@ -262,7 +263,10 @@ function mergeList(current, oldSeed, newSeed, keep) {
  */
 export function upgradeEquipment(equipment, { sessions = [], settings = [] } = {}) {
   const cur = byIdMap(equipment);
-  const oldSeed = byIdMap(seedV1());
+  const seedsV1 = byIdMap(seedV1());
+  const seedsV2 = byIdMap(seedV2());
+  // База «що тренер не змінював» — каталог тієї версії, з якої запис прийшов.
+  const baseOf = (e) => ((e.catalogVersion || 0) >= 2 ? seedsV2 : seedsV1);
   const live = (list) => (list || []).filter((x) => !x.deleted);
   const usedEx = new Set([...live(sessions), ...live(settings)].map((s) => s.exerciseId));
   const usedAdj = new Set(live(settings).map((s) => `${s.equipmentId}|${s.adjustmentId}`));
@@ -274,7 +278,7 @@ export function upgradeEquipment(equipment, { sessions = [], settings = [] } = {
     const c = cur.get(s.id);
     if (!c) { changed.push(s); continue; }
     if (c.deleted || upToDate(c)) continue;
-    const o = oldSeed.get(s.id);
+    const o = baseOf(c).get(s.id);
     if (!o) { changed.push({ ...c, catalogVersion: CATALOG_VERSION }); continue; }
     const next = {
       ...c,
@@ -302,11 +306,21 @@ export function upgradeEquipment(equipment, { sessions = [], settings = [] } = {
   // Змінені тренером лишаються як є (його зміни не зникають з меню).
   const inSeed = new Set(seed.map((e) => e.id));
   for (const c of equipment || []) {
+    const oldSeed = baseOf(c);
     if (inSeed.has(c.id) || c.deleted || upToDate(c) || !oldSeed.has(c.id)) continue;
     const untouched = same(c, oldSeed.get(c.id));
     changed.push({ ...c, ...(untouched ? { retired: true } : {}), catalogVersion: CATALOG_VERSION });
   }
   return changed;
+}
+
+// --- каталог версії 2: база для оновлення 2 → 3 ----------------------------------------
+// Версія 2 = поточний каталог, але кардіо ще без схеми. Наступна версія каталогу — зафіксуй
+// тут точну копію версії 2 (а не похідну від seedEquipment), якщо міняєш щось іще.
+function seedV2() {
+  return seedEquipment().map((e) => (e.id === 'eq-cardio'
+    ? { ...e, schemeId: null, catalogVersion: 2 }
+    : { ...e, catalogVersion: 2 }));
 }
 
 // --- каталог версії 1: база для оновлення («що тренер не змінював») ----------------------

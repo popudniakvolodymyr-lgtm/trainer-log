@@ -1,8 +1,11 @@
 // Реєстр схем: schemeId тренажера → модуль схеми.
-// Модуль схеми: { id, ADJUSTMENTS?: [adjustmentId], HINTS?, draw(values, adjustments) → SVG-рядок,
-//                 optionIcon?(adjustment, optionId) → SVG-рядок }.
-// Схеми підтягуються зі збірок: upper.js (груди, спина, плечі, руки, прес, гантелі — таск 06)
-// і legs.js (ноги — таск 07). Модуль зі збірки з тим самим id замінює вбудований.
+// Модуль схеми — один із двох контрактів (повний опис — src/schemes/index.js):
+//   новий: { id, ADJUSTMENTS?, HINTS?, art({exerciseId, mini}) → SVG-рядок,
+//            MARKERS: {[adjustmentId]: {x, y}} | (exerciseId) → {…}, PICKERS?: {[adjustmentId]: (value, adjustment) → SVG} }
+//   старий: { id, ADJUSTMENTS?, HINTS?, draw(values, adjustments) → SVG-рядок, optionIcon?(adjustment, optionId) }
+// Якщо модуль має art, рендер бере art (draw ігнорується).
+// Схеми підтягуються зі збірок: upper.js (груди, спина, плечі, руки, прес, гантелі), legs.js (ноги)
+// і cardio.js (кардіо). Модуль зі збірки з тим самим id замінює вбудований.
 // schemeId з каталогу без модуля → заглушка (schemeFor → null).
 
 import * as butterfly from './butterfly.js';
@@ -10,6 +13,7 @@ import * as leverPulldown from './lever-pulldown.js';
 import * as lowRow from './low-row.js';
 import { SCHEMES as UPPER } from './upper.js';
 import { SCHEMES as LEGS } from './legs.js';
+import { SCHEMES as CARDIO } from './cardio.js';
 
 const BUILT_IN = {
   butterfly,
@@ -19,10 +23,16 @@ const BUILT_IN = {
   'lever-row': leverPulldown,
 };
 
+/** Чи це модуль схеми (новий контракт з art або старий з draw). */
+export function isSchemeModule(mod) {
+  return !!mod && typeof mod.id === 'string' && mod.id !== ''
+    && (typeof mod.art === 'function' || typeof mod.draw === 'function');
+}
+
 function build() {
   const out = { ...BUILT_IN };
-  for (const mod of [...(UPPER || []), ...(LEGS || [])]) {
-    if (mod && typeof mod.id === 'string' && typeof mod.draw === 'function') out[mod.id] = mod;
+  for (const mod of [...(UPPER || []), ...(LEGS || []), ...(CARDIO || [])]) {
+    if (isSchemeModule(mod)) out[mod.id] = mod;
   }
   return Object.freeze(out);
 }

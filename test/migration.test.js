@@ -182,3 +182,54 @@ test('змінені тренером №16 і старі «Гантелі» н�
   }
   assert.equal(byId['eq-16'].name, 'Скручування (моє)');
 });
+
+// --- версія 2 → 3: кардіо отримує схему (spec «Правки, друга черга» Q8) ---------------------
+// Запис v2 — як його засівала версія 2 каталогу: усе як зараз, лише кардіо без схеми.
+const V2 = () => seedEquipment().map((e) => (e.id === 'eq-cardio'
+  ? { ...e, schemeId: null, catalogVersion: 2 }
+  : { ...e, catalogVersion: 2 }));
+
+test('v2 → v3: незмінене кардіо отримує schemeId «cardio», решта лише позначається версією', () => {
+  const { byId } = apply(V2());
+  assert.deepEqual(byId['eq-cardio'], SEED['eq-cardio']);
+  assert.equal(byId['eq-cardio'].schemeId, 'cardio');
+  for (const id of Object.keys(SEED)) assert.deepEqual(byId[id], SEED[id], id);
+  assert.deepEqual(upgradeEquipment(Object.values(byId), NONE), [], 'повторно — нічого');
+});
+
+test('v2 → v3: зміни тренера в кардіо і в інших тренажерах не губляться, записи на місці', () => {
+  let list = V2();
+  list = replace(list, 'eq-cardio', {
+    name: 'Кардіо (моє)', updatedAt: 1200,
+    exercises: [...SEED['eq-cardio'].exercises, { id: 'eq-cardio-x', name: 'Гребний' }],
+  });
+  list = replace(list, 'eq-03', { name: 'Метелик (мій)', hidden: true, updatedAt: 1300 });
+  list = replace(list, 'eq-07', {
+    adjustments: SEED['eq-07'].adjustments.map((a) => ({ ...a, count: 9, approx: false })), updatedAt: 1400,
+  });
+  const data = {
+    sessions: [{ id: 's1', clientId: 'c1', equipmentId: 'eq-cardio', exerciseId: 'eq-cardio-b', sets: [] }],
+    settings: [],
+  };
+  const { byId } = apply(list, data);
+  const c = byId['eq-cardio'];
+  assert.equal(c.schemeId, 'cardio');
+  assert.equal(c.name, 'Кардіо (моє)');
+  assert.deepEqual(c.exercises.map((x) => x.id), ['eq-cardio-a', 'eq-cardio-b', 'eq-cardio-c', 'eq-cardio-x']);
+  assert.equal(c.updatedAt, 1200);
+  assert.equal(c.catalogVersion, CATALOG_VERSION);
+  assert.equal(byId['eq-03'].name, 'Метелик (мій)');
+  assert.equal(byId['eq-03'].hidden, true);
+  assert.equal(byId['eq-07'].adjustments[0].count, 9);
+});
+
+test('v2 → v3: прибрані №16 і старі «Гантелі» з позначкою v2 лишаються прибраними й цілими', () => {
+  const v1 = apply(V1()).byId;
+  const retired = ['eq-16', 'eq-dumbbells'].map((id) => ({ ...v1[id], catalogVersion: 2 }));
+  const { byId } = apply([...V2(), ...retired]);
+  for (const id of ['eq-16', 'eq-dumbbells']) {
+    assert.equal(byId[id].retired, true, id);
+    assert.ok(!byId[id].deleted, id);
+    assert.equal(byId[id].exercises[0].id, `${id}-a`);
+  }
+});

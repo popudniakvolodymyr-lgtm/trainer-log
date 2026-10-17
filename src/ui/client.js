@@ -1,12 +1,16 @@
 // Картка клієнта: меню тренажерів за групами, пошук, секція «Останні».
 // renderClient(container, ctx), ctx = { store, meta, params, navigate(hash), rerender() }.
 // Тренер і клієнт бачать той самий екран (клієнт — лише свою картку, це перевіряє app.js).
+// Кнопка тренажера — значок (equipmentIcon) + назва. Перед переходом на тренажер прокрутка й
+// пошуковий запит пишуться в history.state цього кроку ({menu:{scrollY, query}}): «назад» на
+// меню їх відновлює (Q6); render повертає { scrollY } — app.js прокручує після вставки.
 
 import { h, mount } from './dom.js';
 import { GROUPS } from '../core/model.js';
 import { menuEquipment } from '../core/catalog.js';
 import { listSessions, recentEquipmentIds } from './log-data.js';
 import { sendButton, backupBanner } from './exchange.js';
+import { equipmentIcon } from '../schemes/index.js';
 
 const RECENT_LIMIT = 6;
 
@@ -17,14 +21,24 @@ const eqHref = (clientId, equipmentId) =>
 const MUTED_STYLE = { opacity: '0.55', filter: 'grayscale(1)' };
 
 /** Кнопка тренажера: назва (власна) і дрібно — назва з сайту, якщо відрізняється. */
-function equipmentButton(clientId, eq, muted = false) {
+function equipmentButton(clientId, eq, muted = false, onLeave = null) {
   const sub = eq.siteName && eq.siteName !== eq.name ? eq.siteName : null;
   return h('a', {
     class: `eq-btn${muted ? ' is-rare' : ''}`, href: eqHref(clientId, eq.id), dataset: { eq: eq.id },
     style: muted ? MUTED_STYLE : null,
+    onclick: onLeave,
   },
-    h('span', { class: 'eq-name' }, eq.name),
-    sub ? h('span', { class: 'eq-sub' }, sub) : null);
+    h('span', { class: 'eq-ico', 'aria-hidden': 'true', html: equipmentIcon(eq) }),
+    h('span', { class: 'eq-text' },
+      h('span', { class: 'eq-name' }, eq.name),
+      sub ? h('span', { class: 'eq-sub' }, sub) : null));
+}
+
+/** Збережене місце меню цього кроку історії: { scrollY, query } або null. */
+function savedMenu(clientId) {
+  const st = typeof history !== 'undefined' ? history.state : null;
+  const m = st && typeof st === 'object' ? st.menu : null;
+  return m && m.clientId === clientId ? m : null;
 }
 
 export async function renderClient(container, ctx) {
@@ -54,9 +68,15 @@ export async function renderClient(container, ctx) {
     autocomplete: 'off',
   });
 
+  // Перед переходом на тренажер — запам'ятати місце меню в поточному кроці історії.
+  const remember = () => {
+    const st = history.state && typeof history.state === 'object' ? history.state : {};
+    history.replaceState({ ...st, menu: { clientId: client.id, scrollY: window.scrollY, query: search.value } }, '');
+  };
+
   const section = (title, items, cls = '') => h('section', { class: `eq-group ${cls}` },
     h('h2', null, title),
-    h('div', { class: 'eq-grid' }, items.map((eq) => equipmentButton(client.id, eq, mutedIds.has(eq.id)))));
+    h('div', { class: 'eq-grid' }, items.map((eq) => equipmentButton(client.id, eq, mutedIds.has(eq.id), remember))));
 
   const recentSection = recent.length ? section('Останні', recent, 'eq-recent') : null;
   const groupSections = Object.entries(GROUPS).map(([groupId, title]) => {
@@ -68,7 +88,7 @@ export async function renderClient(container, ctx) {
 
   body.append(...(recentSection ? [recentSection] : []), ...groupSections.map((g) => g.el));
 
-  search.addEventListener('input', () => {
+  const filter = () => {
     const q = search.value.trim().toLowerCase();
     if (recentSection) recentSection.hidden = !!q;
     let shown = 0;
@@ -82,7 +102,14 @@ export async function renderClient(container, ctx) {
       g.el.hidden = !any;
     }
     noMatch.hidden = shown > 0;
-  });
+  };
+  search.addEventListener('input', filter);
+
+  const saved = savedMenu(client.id);
+  if (saved && saved.query) {
+    search.value = String(saved.query);
+    filter();
+  }
 
   const banner = await backupBanner(ctx);
 
@@ -93,4 +120,5 @@ export async function renderClient(container, ctx) {
     search,
     body,
     noMatch));
+  return saved && Number.isFinite(saved.scrollY) ? { scrollY: saved.scrollY } : null;
 }

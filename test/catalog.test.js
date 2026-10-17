@@ -61,8 +61,8 @@ test('HANDLE_ADJUSTMENT — регулювання «Ручка» з п\'ять�
     ['v-bar', 'rope', 'd-handle', 'short-bar', 'long-bar']);
 });
 
-test('CATALOG_VERSION — 2, кожен запис позначено версією', () => {
-  assert.equal(CATALOG_VERSION, 2);
+test('CATALOG_VERSION — 3, кожен запис позначено версією', () => {
+  assert.equal(CATALOG_VERSION, 3);
   for (const eq of seedEquipment()) assert.equal(eq.catalogVersion, CATALOG_VERSION, eq.id);
 });
 
@@ -82,6 +82,9 @@ test('тренажери сайту без №11 і №16; турнік і ка�
   assert.equal(m['eq-bar'].weightMode, 'bodyweight');
   assert.equal(m['eq-cardio'].weightMode, 'cardio');
   assert.deepEqual(m['eq-cardio'].exercises.map((x) => x.name), ['Бігова доріжка', 'Велотренажер', 'Еліпс']);
+  assert.deepEqual(m['eq-cardio'].exercises.map((x) => x.id), ['eq-cardio-a', 'eq-cardio-b', 'eq-cardio-c']);
+  assert.equal(m['eq-cardio'].schemeId, 'cardio', 'Q8: кардіо отримує схему');
+  assert.deepEqual(m['eq-cardio'].adjustments, [], 'кардіо без регулювань');
 });
 
 test('id детерміновані й унікальні; виклики незалежні; поля моделі на місці', () => {

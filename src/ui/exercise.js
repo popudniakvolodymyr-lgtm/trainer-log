@@ -23,15 +23,29 @@ function notFound(container, ctx, text) {
     back ? h('a', { class: 'btn btn-primary btn-big', href: back }, 'До картки клієнта') : null));
 }
 
-/** Великий перемикач вправ (лише якщо їх кілька). */
-function exerciseSwitcher(clientId, equipment, exercises, current) {
+/**
+ * Великий перемикач вправ (лише якщо їх кілька). Вкладка замінює поточний крок історії
+ * (history.replaceState), а не додає новий: «назад» з будь-якої вкладки — у меню картки (Q5).
+ */
+function exerciseSwitcher(clientId, equipment, exercises, current, rerender) {
   if (exercises.length < 2) return null;
+  const switchTo = (e, href, same) => {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    if (same) return;
+    history.replaceState(history.state, '', href);
+    rerender();
+  };
   return h('nav', { class: 'ex-switch', role: 'tablist', 'aria-label': 'Вправа' },
-    exercises.map((ex) => h('a', {
-      class: `ex-tab${ex.id === current.id ? ' is-active' : ''}`,
-      role: 'tab', 'aria-selected': ex.id === current.id ? 'true' : 'false',
-      href: exHref(clientId, equipment.id, ex.id),
-    }, ex.name)));
+    exercises.map((ex) => {
+      const href = exHref(clientId, equipment.id, ex.id);
+      return h('a', {
+        class: `ex-tab${ex.id === current.id ? ' is-active' : ''}`,
+        role: 'tab', 'aria-selected': ex.id === current.id ? 'true' : 'false',
+        href,
+        onclick: (e) => switchTo(e, href, ex.id === current.id),
+      }, ex.name);
+    }));
 }
 
 function historyView(weightMode, sessions, onEdit) {
@@ -95,8 +109,8 @@ export async function renderExercise(container, ctx) {
     },
   });
 
-  // --- схема: малює таск 03; вибір значення вона зберігає сама через store/rerender,
-  //     а onPick — запасний шлях (панель вибору), якщо схема лише повідомляє про натиск ---
+  // --- схема: малюнок + мітки + список регулювань (renderScheme); вибір значення вона
+  //     зберігає сама через store, onPick — запасний шлях, якщо схема лише повідомляє про натиск ---
   const onPick = (adjustmentId) => {
     const adjustment = (equipment.adjustments || []).find((a) => a.id === adjustmentId && !a.deleted);
     if (!adjustment) return;
@@ -131,7 +145,7 @@ export async function renderExercise(container, ctx) {
       showSub || singleName || role === 'trainer'
         ? h('p', { class: 'muted ex-sub' }, [showSub, singleName, role === 'trainer' ? client.name : null].filter(Boolean).join(' · '))
         : null),
-    exerciseSwitcher(client.id, equipment, exercises, exercise),
+    exerciseSwitcher(client.id, equipment, exercises, exercise, rerender),
     schemeBox,
     h('section', { class: 'ex-section' }, h('h2', null, 'Графік'), chartBox),
     h('section', { class: 'ex-section' }, h('h2', null, 'Історія'), historyView(weightMode, sessions, edit)),

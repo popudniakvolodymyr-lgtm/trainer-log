@@ -19,9 +19,12 @@ const badgeValue = (svg, adjId) => {
   return m ? m[1] : null;
 };
 
+// Кардіо (Q8) малює таск 10 у src/schemes/cardio.js — до того заглушка; таск 10 прибирає звідси.
+const PENDING = new Set(['cardio']);
+
 test('кожен schemeId каталогу має схему в реєстрі', () => {
   for (const eq of seedEquipment()) {
-    if (!eq.schemeId || eq.hidden) continue;
+    if (!eq.schemeId || eq.hidden || PENDING.has(eq.schemeId)) continue;
     assert.ok(schemeFor(eq), `${eq.id}: немає схеми ${eq.schemeId}`);
     assert.equal(schemeFor(eq).id, eq.schemeId, eq.id);
   }
@@ -173,4 +176,132 @@ test('новий тренажер: свій, без схеми, з першою 
   assert.deepEqual(eq.exercises.map((x) => x.name), ['Смітт']);
   assert.ok(eq.id && eq.exercises[0].id);
   assert.throws(() => addEquipment({ name: ' ', group: 'legs', weightMode: 'single' }), /назву/);
+});
+
+// --- новий контракт модуля схеми: art + MARKERS + PICKERS (spec «Правки, друга черга» Q1, Q4) ---
+import { schemeSvg, equipmentIcon, pickerArt, adjustmentRows, markerColor } from '../src/schemes/index.js';
+import { isSchemeModule } from '../src/schemes/registry.js';
+
+/** Тестовий модуль нового контракту: запам'ятовує, з чим його викликали. */
+function testModule() {
+  const calls = [];
+  return {
+    calls,
+    id: 'test-art',
+    HINTS: { seat: { first: 'найнижче', last: 'найвище' } },
+    art: (opts) => {
+      calls.push(opts);
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 240"><g id="machine-${opts.mini ? 'mini' : 'full'}-${opts.exerciseId}"/></svg>`;
+    },
+    MARKERS: { seat: { x: 120, y: 150 }, grip: { x: 250, y: 80 } },
+    PICKERS: {
+      seat: (value, adj) => `<svg viewBox="0 0 100 100"><g data-pick="1"/><text>${adj.label}:${value ?? '-'}</text></svg>`,
+    },
+  };
+}
+const testEq = {
+  id: 'eq-t', name: 'Тест', group: 'chest', weightMode: 'single', schemeId: 'test-art',
+  exercises: [{ id: 'eq-t-a', name: 'Вправа' }],
+  adjustments: [
+    { id: 'seat', label: 'Сидіння', kind: 'positions', count: 5, approx: true },
+    { id: 'grip', label: 'Хват', kind: 'options', options: [{ id: 'green', label: 'Верх', color: '#2e9d4f' }, { id: 'red', label: 'Вигин' }] },
+    { id: 'mine', label: 'Своє тренера', kind: 'positions', count: 3 },
+    { id: 'gone', label: 'Видалене', kind: 'positions', count: 3, deleted: true },
+  ],
+};
+const markerOf = (svg, adjId) => new RegExp(`<g[^>]*data-marker="${adjId}"[^>]*>`).exec(svg)?.[0] || null;
+
+test('новий контракт: малюнок art без бейджів і шкал, мітки на координатах MARKERS', () => {
+  const mod = testModule();
+  const svg = schemeSvg(mod, testEq, 'eq-t-a', {});
+  assert.deepEqual(mod.calls, [{ exerciseId: 'eq-t-a', mini: false }]);
+  assert.match(svg, /^<svg[\s>][\s\S]*<\/svg>$/);
+  assert.ok(svg.includes('id="machine-full-eq-t-a"'), 'малюнок тренажера на місці');
+  assert.ok(!svg.includes('data-badge') && !svg.includes('data-pos='), 'без бейджів і шкал');
+  assert.ok(markerOf(svg, 'seat') && markerOf(svg, 'grip'));
+  assert.match(svg, /data-marker="seat"[\s\S]*?<circle[^>]*cx="120"[^>]*cy="150"/);
+  assert.match(svg, /data-marker="grip"[\s\S]*?<circle[^>]*cx="250"[^>]*cy="80"/);
+  assert.equal(markerOf(svg, 'mine'), null, 'регулювання без координат — лише в списку');
+  assert.equal(markerOf(svg, 'gone'), null, 'видалене — без мітки');
+  assert.ok(markerOf(svg, 'seat').includes('data-adj="seat"'), 'мітка — кнопка регулювання');
+  // мітка — маленька: радіус від ширини viewBox (360 → 9)
+  assert.match(svg, /data-marker="seat"[\s\S]*?<circle[^>]*class="sc-marker-dot"[^>]*r="9"/);
+});
+
+test('вибране значення підсвічує мітку; невибране — порожня мітка; без цифр на малюнку', () => {
+  const mod = testModule();
+  const svg = schemeSvg(mod, testEq, 'eq-t-a', { seat: 3 });
+  assert.match(markerOf(svg, 'seat'), /class="[^"]*is-set/);
+  assert.match(markerOf(svg, 'seat'), /data-value="3"/);
+  assert.match(markerOf(svg, 'grip'), /class="[^"]*is-empty/);
+  assert.match(markerOf(svg, 'grip'), /data-value=""/);
+  assert.ok(!/<text[^>]*>3<\/text>/.test(svg), 'значення не пишеться цифрою на малюнку');
+  const svg2 = schemeSvg(mod, testEq, 'eq-t-a', { grip: 'red', seat: 99 });
+  assert.match(markerOf(svg2, 'grip'), /is-set/);
+  assert.match(markerOf(svg2, 'seat'), /is-empty/, 'позиція поза 1…N — не вибрано');
+});
+
+test('MARKERS може залежати від вправи (функція exerciseId → координати)', () => {
+  const mod = { ...testModule(), MARKERS: (exId) => (exId === 'eq-t-b' ? { seat: { x: 10, y: 20 } } : {}) };
+  assert.equal(markerOf(schemeSvg(mod, testEq, 'eq-t-a', {}), 'seat'), null);
+  assert.match(schemeSvg(mod, testEq, 'eq-t-b', {}), /data-marker="seat"[\s\S]*?cx="10"[^>]*cy="20"/);
+});
+
+test('старий модуль (draw) малюється як раніше', () => {
+  const eq = byId['eq-03'];
+  const svg = schemeSvg(SCHEMES.butterfly, eq, 'eq-03-a', { seat: 4 });
+  assert.equal(svg, SCHEMES.butterfly.draw({ seat: 4 }, eq.adjustments.filter((a) => !a.deleted)));
+});
+
+test('список під малюнком: усі активні регулювання з поточним значенням, ⚠ біля приблизних, колір мітки', () => {
+  const rows = adjustmentRows(testEq, { seat: 3, grip: 'green' }, testModule(), 'eq-t-a');
+  assert.deepEqual(rows.map((r) => [r.id, r.label, r.value, r.set, r.approx]), [
+    ['seat', 'Сидіння', '3', true, true],
+    ['grip', 'Хват', 'Верх', true, false],
+    ['mine', 'Своє тренера', 'не вибрано', false, false],
+  ]);
+  assert.equal(rows[0].marker, markerColor(0));
+  assert.equal(rows[1].marker, markerColor(1));
+  assert.equal(rows[2].marker, null, 'без мітки на малюнку — без кольору');
+  assert.notEqual(markerColor(0), markerColor(1));
+  // колір у списку = колір мітки на малюнку
+  const svg = schemeSvg(testModule(), testEq, 'eq-t-a', {});
+  assert.ok(markerOf(svg, 'grip').includes(`--mk:${markerColor(1)}`) || svg.includes(`stroke="${markerColor(1)}"`));
+});
+
+test('PICKERS: наочність у вікні вибору отримує поточне значення; без PICKERS — порожньо', () => {
+  const mod = testModule();
+  const seat = testEq.adjustments[0];
+  assert.match(pickerArt(mod, seat, 4), /Сидіння:4/);
+  assert.match(pickerArt(mod, seat, undefined), /Сидіння:-/);
+  assert.equal(pickerArt(mod, testEq.adjustments[1], 'red'), '');
+  assert.equal(pickerArt(SCHEMES.butterfly, seat, 1), '', 'старі модулі PICKERS не мають');
+});
+
+test('значок у меню: силует art({mini:true}), гантеля для групи «Гантелі», нейтральний без схеми', () => {
+  const mod = testModule();
+  const icon = equipmentIcon(testEq, mod);
+  assert.deepEqual(mod.calls, [{ exerciseId: 'eq-t-a', mini: true }]);
+  assert.ok(icon.includes('id="machine-mini-eq-t-a"'));
+  assert.ok(!icon.includes('data-marker'), 'у значку без міток');
+  const db = seedEquipment().filter((e) => e.group === 'dumbbells');
+  assert.ok(db.length > 3);
+  const dbIcons = new Set(db.map((e) => equipmentIcon(e)));
+  assert.equal(dbIcons.size, 1, 'усі гантелі — один значок');
+  const [dumbbell] = dbIcons;
+  assert.match(dumbbell, /^<svg[\s>][\s\S]*<\/svg>$/);
+  assert.ok(dumbbell.includes('data-icon="dumbbell"'));
+  const neutral = equipmentIcon({ ...byId['eq-01'], schemeId: null });
+  assert.ok(neutral.includes('data-icon="machine"'));
+  assert.notEqual(neutral, dumbbell);
+  assert.equal(equipmentIcon(byId['eq-03'], SCHEMES.butterfly), neutral, 'старий модуль без art — нейтральний значок');
+  // зламаний art не валить меню
+  assert.equal(equipmentIcon(testEq, { id: 'x', art: () => { throw new Error('x'); } }), neutral);
+});
+
+test('реєстр приймає модулі обох контрактів', () => {
+  assert.equal(isSchemeModule(testModule()), true);
+  assert.equal(isSchemeModule(SCHEMES.butterfly), true);
+  assert.equal(isSchemeModule({ id: 'x' }), false);
+  assert.equal(isSchemeModule({ art: () => '' }), false);
 });

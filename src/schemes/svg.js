@@ -183,3 +183,39 @@ export function wrapText(x, y, s, { width, size = 12.5, lineHeight = 16, ...a })
     lines: lines.length,
   };
 }
+
+// --- мітки регулювань для модулів нового контракту (art + MARKERS) ------------------------
+
+/** Ширина viewBox SVG-рядка (для масштабу міток) або 360. */
+export function viewBoxWidth(svg) {
+  const m = /viewBox\s*=\s*"\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+[\d.]+\s*"/.exec(String(svg || ''));
+  const w = m ? Number(m[1]) : NaN;
+  return Number.isFinite(w) && w > 0 ? w : 360;
+}
+
+/**
+ * Додає до малюнка art шар міток (перед останнім </svg>).
+ * items: [{ id, x, y, color, set, value, label }] — координати у viewBox малюнка.
+ * Мітка — маленька кольорова крапка без цифр: вибрано → заповнена з ореолом (is-set),
+ * не вибрано → біла з кольоровим обідком (is-empty). Кожна — кнопка data-adj.
+ */
+export function withMarkers(artSvg, items) {
+  const svg = String(artSvg || '');
+  const end = svg.lastIndexOf('</svg>');
+  if (end < 0 || !items.length) return svg;
+  const r = Math.round((viewBoxWidth(svg) / 40) * 10) / 10;
+  const layer = items.map((m) => el('g', {
+    'data-marker': m.id, 'data-adj': m.id, 'data-value': m.set ? m.value : '',
+    class: `sc-zone sc-marker ${m.set ? 'is-set' : 'is-empty'}`,
+    style: `--mk:${m.color}`,
+    role: 'button', tabindex: 0, 'aria-label': m.label,
+  }, el('title', {}, esc(m.label))
+    + el('circle', { class: 'sc-marker-hit', cx: m.x, cy: m.y, r: Math.round(r * 2.6), fill: 'transparent' })
+    + (m.set ? el('circle', { class: 'sc-marker-halo', cx: m.x, cy: m.y, r: Math.round(r * 1.8), fill: m.color, 'fill-opacity': 0.28 }) : '')
+    + el('circle', {
+      class: 'sc-marker-dot', cx: m.x, cy: m.y, r,
+      fill: m.set ? m.color : '#ffffff', stroke: m.set ? '#ffffff' : m.color,
+      'stroke-width': Math.round((r / 3) * 10) / 10,
+    }))).join('');
+  return `${svg.slice(0, end)}<g class="sc-markers">${layer}</g>${svg.slice(end)}`;
+}

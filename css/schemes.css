@@ -21,10 +21,29 @@
 .scheme-svg .sc-zone:focus-visible .sc-badge-bg { stroke: #0b3d6e; stroke-width: 4; }
 .scheme-svg .sc-grip:focus-visible rect { stroke-width: 4; }
 
+/* мітки регулювань на малюнку (новий контракт art + MARKERS) */
+.scheme-svg .sc-marker, .scheme-canvas .sc-marker { cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; }
+.scheme-canvas > svg { display: block; width: 100%; height: auto; max-width: 520px; margin: 0 auto; }
+.scheme-canvas .sc-marker:focus-visible .sc-marker-dot { stroke: #10151a; stroke-width: 4; }
+.scheme-canvas .sc-marker.is-active .sc-marker-dot { animation: sc-marker-blink 0.8s ease-in-out infinite alternate; }
+.scheme-canvas .sc-marker.is-active .sc-marker-hit { fill: var(--mk); fill-opacity: 0.18; }
+@keyframes sc-marker-blink { from { opacity: 1; } to { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) {
+  .scheme-canvas .sc-marker.is-active .sc-marker-dot { animation: none; }
+}
+
 /* позначки ⚠ над схемою */
 .scheme-placeholder .scheme-missing { margin: 0 0 4px; font-size: 1.05rem; }
 
-/* --- список регулювань (заглушка й додаткові) --- */
+/* --- список регулювань під малюнком: «Сидіння — 3», великі рядки --- */
+.scheme-adjs .adj-item { display: flex; align-items: center; gap: 10px; min-height: 56px; }
+.scheme-adjs .adj-label { flex: 1; min-width: 0; font-size: 1.05rem; }
+.scheme-adjs .adj-value { font-size: 1.35rem; }
+.adj-dot { flex: none; width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px rgba(0, 0, 0, 0.18); }
+.adj-warn {
+  flex: none; font-size: 0.95rem; line-height: 1; padding: 4px 6px; border-radius: 999px;
+  background: var(--warn-bg); color: var(--warn-text);
+}
 .adj-item.is-empty .adj-value { color: var(--muted); font-weight: 600; font-size: 1rem; }
 .opt-pic { display: inline-flex; align-items: center; justify-content: center; line-height: 0; }
 .opt-pic svg { display: block; }
@@ -33,6 +52,11 @@
 /* --- нижня панель вибору --- */
 .picker { display: flex; flex-direction: column; gap: 12px; padding-bottom: 4px; }
 .picker-warn { align-self: flex-start; margin: 0; }
+/* наочність регулювання (PICKERS): шкала, коло шарніра, зони хвату */
+.picker-art { border: 1px solid var(--line); border-radius: 14px; background: #f8faf9; line-height: 0; overflow: hidden; }
+.picker-art svg { display: block; width: 100%; height: auto; max-height: 260px; }
+.picker-art .pick-zone { cursor: pointer; outline: none; }
+.picker-art .pick-zone:focus-visible { outline: 3px solid #1864ab; }
 .pick-positions { display: flex; flex-direction: column; gap: 8px; }
 .pick-pos {
   display: flex; align-items: center; gap: 14px;
