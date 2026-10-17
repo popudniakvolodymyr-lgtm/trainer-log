@@ -1,0 +1,112 @@
+/* Екрани запису: клієнти, картка клієнта, вправа, графік, історія, форми підходу. */
+
+[hidden] { display: none !important; }
+
+.has-bar { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+
+/* --- нижня панель дії --- */
+.log-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+}
+.log-bar > .btn { display: flex; max-width: 608px; margin: 0 auto; }
+
+/* --- список клієнтів --- */
+.client-list { list-style: none; margin: var(--gap) 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.client-row {
+  display: flex; align-items: center;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding-right: 4px;
+}
+.client-link {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center;
+  min-height: var(--tap); padding: 10px 16px;
+  color: var(--text); font-weight: 600; font-size: 1.1rem; text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.empty-state { text-align: center; padding: 28px 16px; }
+.empty-state h2 { font-size: 1.3rem; }
+.empty-state .btn { margin-top: 12px; }
+
+/* --- меню тренажерів --- */
+.eq-menu { margin-top: var(--gap); }
+.eq-group { margin: 0 0 20px; }
+.eq-group h2 { margin: 0 0 8px; color: var(--muted); font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.eq-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.eq-btn {
+  display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  min-height: var(--tap); padding: 10px 12px;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  text-decoration: none; overflow-wrap: anywhere;
+  touch-action: manipulation;
+}
+.eq-btn:active { transform: scale(0.98); }
+.eq-name { font-weight: 700; line-height: 1.2; }
+.eq-sub { font-size: 0.8rem; color: var(--muted); line-height: 1.2; }
+.eq-recent .eq-btn { background: var(--primary-soft); border-color: var(--primary); }
+
+/* --- екран вправи --- */
+.ex-head h1 { margin-bottom: 0.1em; }
+.ex-sub { margin: 0 0 var(--gap); }
+.ex-switch { display: flex; gap: 6px; padding: 4px; margin: 0 0 var(--gap); background: var(--primary-soft); border-radius: var(--radius); }
+.ex-tab {
+  flex: 1; display: flex; align-items: center; justify-content: center; text-align: center;
+  min-height: var(--tap); padding: 8px 10px;
+  border-radius: 11px; color: var(--primary); font-weight: 700; line-height: 1.2; text-decoration: none;
+}
+.ex-tab.is-active { background: var(--primary); color: var(--primary-text); }
+.scheme-box { margin: 0 0 var(--gap); }
+.ex-section { margin: 20px 0 0; }
+
+/* --- графік --- */
+.chart { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px; }
+.chart-empty { padding: 28px 16px; text-align: center; color: var(--muted); }
+.chart-svg { display: block; width: 100%; height: auto; }
+.chart-grid { stroke: var(--line); stroke-width: 1; }
+.chart-axis { stroke: var(--muted); stroke-width: 1; }
+.chart-tick { fill: var(--muted); font-size: 10px; }
+.chart-unit { fill: var(--muted); font-size: 10px; font-weight: 700; }
+.chart-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; opacity: 0.85; }
+.chart-dot { stroke: var(--surface); stroke-width: 1.5; }
+.chart-label { fill: var(--text); font-size: 10px; font-weight: 600; }
+.chart-legend { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.chart-legend li { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; }
+.chart-swatch { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+.chart-hint { margin: 4px 0 0; font-size: 0.9rem; }
+
+/* --- історія --- */
+.history { display: flex; flex-direction: column; }
+.history-day { padding: 12px 8px 8px; }
+.history-date { margin: 0 8px 4px; font-size: 1rem; }
+.history-sets { list-style: none; margin: 0; padding: 0; }
+.history-set {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  min-height: 48px; padding: 6px 8px;
+  border: 0; border-radius: 10px; background: transparent; color: var(--text);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.history-set:active { background: var(--primary-soft); }
+.history-n { color: var(--muted); min-width: 1.6em; }
+.history-text { flex: 1; font-weight: 600; }
+.history-edit { color: var(--muted); }
+
+/* --- форма підходу --- */
+.log-form { gap: 10px; }
+.log-field { display: flex; flex-direction: column; gap: 4px; }
+.log-row { display: flex; gap: 8px; }
+.log-input { flex: 1; min-width: 0; text-align: center; font-size: 1.4rem; font-weight: 700; }
+.log-step { width: var(--tap); padding: 0; font-size: 1.6rem; flex: none; }
+.log-copy { min-height: 44px; align-self: flex-start; }
+.log-field .field-error { min-height: 0; }
+
+/* --- вибір значення регулювання --- */
+.pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
+.pick-list { display: flex; flex-direction: column; gap: 8px; }
+.pick-pos, .pick-option { min-height: 60px; font-size: 1.2rem; justify-content: center; }
+.pick-option { justify-content: flex-start; }
+.pick-pos.is-active, .pick-option.is-active { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
+.approx-note { margin: 0; padding: 4px 10px; border-radius: 8px; background: var(--warn-bg); color: var(--warn-text); }
