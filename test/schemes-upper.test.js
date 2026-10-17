@@ -6,6 +6,7 @@ import { schemeFor } from '../src/schemes/registry.js';
 import { schemeSvg, schemeMarkers, pickerArt, equipmentIcon } from '../src/schemes/index.js';
 import * as leverPulldownModule from '../src/schemes/lever-pulldown.js';
 import { renameOption } from '../src/schemes/equipment-edit.js';
+import { createHash } from 'node:crypto';
 
 // Очікування — з interfaces.md («T05 — каталог правок», «T08 — каркас схем») і spec.md
 // «Правки, друга черга» Q2–Q4, не з коду під тестом.
@@ -252,6 +253,56 @@ test('ручка-Г (№14, №21): у вікні вибору дві зони �
     }
     const on = pickerArt(sc, a, 'pos-2');
     assert.ok(pickOn(on, 'pos-2') && !pickOn(on, 'pos-1'), eqId);
+  }
+});
+
+// --- четверта черга (таск 16): ручка-L на №14 — gym/my-photos/ruchka-g-pravka-4.png ---
+
+/** Точки шляху зони хвату data-grip-zone="v" (перший <path d> у групі). */
+function zonePoints(svg, v) {
+  const m = new RegExp(`data-grip-zone="${v}"[^>]*>(?:(?!</g>).)*?<path[^>]*\\sd="([^"]+)"`, 's').exec(svg);
+  assert.ok(m, `немає шляху зони ${v}`);
+  const nums = m[1].match(/-?\d+(?:\.\d+)?/g).map(Number);
+  const pts = [];
+  for (let i = 0; i + 1 < nums.length; i += 2) pts.push([nums[i], nums[i + 1]]);
+  return pts;
+}
+
+test('ручка-L (№14): важіль на всю ширину вгорі, «Під 90°» — вертикальна зліва, «Прямий» — горизонтальна внизу', () => {
+  const a = adj('eq-14', 'grip-pos');
+  const sc = schemeFor(byId['eq-14']);
+  for (const v of [undefined, 'pos-1', 'pos-2']) {
+    const svg = pickerArt(sc, a, v);
+    const [, , w] = viewBox(svg);
+    const lever = /<rect[^>]*data-part="lever"[^>]*>/.exec(svg);
+    assert.ok(lever, 'важіль позначено');
+    const lx = Number(/\sx="([^"]+)"/.exec(lever[0])[1]);
+    const lw = Number(/\swidth="([^"]+)"/.exec(lever[0])[1]);
+    assert.ok(lx <= w * 0.1 && lx + lw >= w * 0.85, `важіль на всю ширину: x=${lx}, w=${lw}`);
+    const vert = zonePoints(svg, 'pos-2');
+    const hor = zonePoints(svg, 'pos-1');
+    assert.ok(vert.every((p) => p[0] === vert[0][0]) && vert[0][1] !== vert[1][1], '«Під 90°» — вертикальна');
+    assert.ok(hor.every((p) => p[1] === hor[0][1]) && hor[0][0] !== hor[1][0], '«Прямий» — горизонтальна');
+    const vx = vert[0][0];
+    assert.ok(vx < w * 0.25, 'вертикальна частина — під лівим кінцем важеля');
+    assert.ok(hor[0][1] > Math.max(...vert.map((p) => p[1])), '«Прямий» нижче вертикальної частини (L, не Г)');
+    assert.ok(Math.min(...hor.map((p) => p[0])) > vx, 'горизонтальна йде від кута вправо');
+  }
+  const on = pickerArt(sc, a, 'pos-1');
+  assert.ok(pickOn(on, 'pos-1') && !pickOn(on, 'pos-2'));
+});
+
+test('ручка-Г вертикальної тяги (№21): вікно вибору не змінилося', () => {
+  const a = adj('eq-21', 'grip-pos');
+  const sc = schemeFor(byId['eq-21']);
+  const expected = {
+    none: '8a611fe3cb3b9c79f7117110d1e82f7b1486cef9854c80fd6244308b6ff61f38',
+    'pos-1': 'f55f1ae811aebeef6568cc583eb0f9832edd875b5c27fb2ed0b07e67864ce059',
+    'pos-2': 'aa8c3158a6aa6ed815be46e7f9a39c013c2e505014ed0a64ea16611d734817b5',
+  };
+  for (const [k, hash] of Object.entries(expected)) {
+    const svg = pickerArt(sc, a, k === 'none' ? undefined : k);
+    assert.equal(createHash('sha256').update(svg).digest('hex'), hash, k);
   }
 });
 

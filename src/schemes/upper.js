@@ -804,23 +804,73 @@ function lGripPicker(plate) {
     if (sel && sel.id === 'pos-1') pic.push(fistOnBar(206, 98));
     if (sel && sel.id === 'pos-2') pic.push(fistOnPost(106, 152));
     out.push(el('g', { transform: 'translate(-24 0)' }, pic.join('')));
-    // назви й як тримати — під малюнком, кнопками
-    const gap = 8;
-    const n = Math.max(1, opts.length);
-    const w = (340 - gap * (n - 1)) / n;
-    opts.forEach((o, i) => {
-      const on = !!sel && sel.id === o.id;
-      const z = L_ZONES[o.id];
-      const color = z ? z.color : ACC;
-      const x = r1(10 + i * (w + gap));
-      out.push(el('g', { 'data-pick': o.id, class: on ? 'pk is-on' : 'pk', 'aria-label': `${adj.label}: ${o.label}` },
-        el('title', {}, esc(z ? `${o.label} — ${z.how}` : o.label))
-        + el('rect', { x, y: 200, width: r1(w), height: 54, rx: 14, fill: on ? color : '#ffffff', stroke: color, 'stroke-width': on ? 3 : 2 })
-        + el('circle', { cx: x + 18, cy: 220, r: 8, fill: on ? '#ffffff' : color })
-        + text(x + 32, 225.5, o.label, { 'font-size': fit(o.label, w - 40, 16), 'font-weight': on ? 800 : 700, fill: on ? '#ffffff' : C.ink })
-        + (z ? text(x + 12, 245, z.how, { 'font-size': fit(z.how, w - 20, 12.5), fill: on ? '#ffffff' : C.muted }) : '')));
-    });
+    out.push(...gripButtons(opts, sel, adj, L_ZONES));
     return pickerSvg(360, 262, `${adj.label}: ручка буквою Г — за яку частину брати`, out.join(''));
+  };
+}
+
+/** Назви варіантів хвату і як тримати — під малюнком, кнопками (y 200…254). */
+function gripButtons(opts, sel, adj, zones) {
+  const gap = 8;
+  const n = Math.max(1, opts.length);
+  const w = (340 - gap * (n - 1)) / n;
+  return opts.map((o, i) => {
+    const on = !!sel && sel.id === o.id;
+    const z = zones[o.id];
+    const color = z ? z.color : ACC;
+    const x = r1(10 + i * (w + gap));
+    return el('g', { 'data-pick': o.id, class: on ? 'pk is-on' : 'pk', 'aria-label': `${adj.label}: ${o.label}` },
+      el('title', {}, esc(z ? `${o.label} — ${z.how}` : o.label))
+      + el('rect', { x, y: 200, width: r1(w), height: 54, rx: 14, fill: on ? color : '#ffffff', stroke: color, 'stroke-width': on ? 3 : 2 })
+      + el('circle', { cx: x + 18, cy: 220, r: 8, fill: on ? '#ffffff' : color })
+      + text(x + 32, 225.5, o.label, { 'font-size': fit(o.label, w - 40, 16), 'font-weight': on ? 800 : 700, fill: on ? '#ffffff' : C.ink })
+      + (z ? text(x + 12, 245, z.how, { 'font-size': fit(z.how, w - 20, 12.5), fill: on ? '#ffffff' : C.muted }) : ''));
+  });
+}
+
+// Ручка буквою L (№14, правка четвертої черги — gym/my-photos/ruchka-g-pravka-4.png): важіль на всю
+// ширину вгорі (млинець праворуч), від лівого кінця важеля ручка йде вниз, унизу — вправо.
+// «Під 90°» (pos-2) — вертикальна частина, «Прямий» (pos-1) — нижня горизонтальна.
+const LL_X = 44;            // вертикальна частина під лівим кінцем важеля
+const LL_Y = 164;           // нижня горизонтальна частина
+const LL_ZONES = {
+  'pos-1': { d: `M86 ${LL_Y} L218 ${LL_Y}`, color: L_ZONES['pos-1'].color, how: L_ZONES['pos-1'].how },
+  'pos-2': { d: `M${LL_X} 74 L${LL_X} 132`, color: L_ZONES['pos-2'].color, how: L_ZONES['pos-2'].how },
+};
+const LL_HANDLE = `M${LL_X} 44 L${LL_X} ${LL_Y - 24} Q${LL_X} ${LL_Y} ${LL_X + 24} ${LL_Y} L240 ${LL_Y}`;
+
+/** PICKER «Хват» для ручки-L; plate — колір млинця на важелі. */
+function lShapeGripPicker(plate) {
+  return (value, adj) => {
+    const opts = (adj.options || []).filter((o) => !o.deleted);
+    const sel = opts.find((o) => o.id === value) || null;
+    const pic = [];
+    // важіль на всю ширину з млинцем праворуч
+    pic.push(el('rect', { x: 14, y: 18, width: 312, height: 28, rx: 14, fill: P3.orange, stroke: tone(P3.orange, -0.4), 'stroke-width': 1.5, 'data-part': 'lever' })
+      + el('rect', { x: 22, y: 36, width: 296, height: 7, rx: 3.5, fill: tone(P3.orange, -0.18) }));
+    pic.push(el('circle', { cx: 324, cy: 32, r: 30, fill: plate, stroke: tone(plate, -0.45), 'stroke-width': 2 })
+      + el('circle', { cx: 324, cy: 32, r: 20, fill: 'none', stroke: tone(plate, 0.18), 'stroke-width': 2 })
+      + el('circle', { cx: 324, cy: 32, r: 7, fill: P3.metal, stroke: tone(P3.metal, -0.45) }));
+    // кріплення ручки до лівого кінця важеля
+    pic.push(el('rect', { x: LL_X - 9, y: 38, width: 18, height: 18, rx: 3, fill: FR }));
+    // ручка-L (гума), торець металевий
+    pic.push(path(LL_HANDLE, 23, tone(P3.rubber, -0.3)) + path(LL_HANDLE, 19, P3.rubber)
+      + path(`M${LL_X - 6} 60 L${LL_X - 6} ${LL_Y - 26}`, 3, tone(P3.rubber, 0.35), { opacity: 0.8 })
+      + path(`M${LL_X + 26} ${LL_Y - 6} L236 ${LL_Y - 6}`, 3, tone(P3.rubber, 0.35), { opacity: 0.8 })
+      + el('rect', { x: 238, y: LL_Y - 12, width: 9, height: 24, rx: 3, fill: P3.metal, stroke: tone(P3.metal, -0.45) }));
+    for (const o of opts) {
+      const z = LL_ZONES[o.id];
+      if (!z) continue;
+      const on = !!sel && sel.id === o.id;
+      pic.push(el('g', { 'data-pick': o.id, 'data-grip-zone': o.id, class: on ? 'pk is-on' : 'pk', 'aria-label': `${adj.label}: ${o.label}` },
+        el('title', {}, esc(`${o.label} — ${z.how}`))
+        + path(z.d, 44, z.color, { opacity: on ? 0.3 : 0.14 })
+        + path(z.d, on ? 10 : 7, z.color, { opacity: on || !sel ? 1 : 0.5 })));
+    }
+    if (sel && sel.id === 'pos-1') pic.push(fistOnBar(152, LL_Y));
+    if (sel && sel.id === 'pos-2') pic.push(fistOnPost(LL_X, 104));
+    const out = [pic.join(''), ...gripButtons(opts, sel, adj, LL_ZONES)];
+    return pickerSvg(360, 262, `${adj.label}: ручка буквою L — за яку частину брати`, out.join(''));
   };
 }
 
@@ -839,7 +889,7 @@ const plateShoulderPress = artModule({
   ADJUSTMENTS: ['grip-pos', 'seat'],
   HINTS: SEAT_HINTS,
   PICKERS: {
-    'grip-pos': lGripPicker(P3.plateGreen),
+    'grip-pos': lShapeGripPicker(P3.plateGreen),
     seat: heightPicker('seat', SEAT_HINTS),
   },
   build(exerciseId, mini) {
