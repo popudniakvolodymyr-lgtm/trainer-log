@@ -47,6 +47,14 @@ const safeColor = (c) => /^#[0-9a-f]{3,8}$/i.test(String(c || ''));
 /** Підпис під схемою тренажера без регулювань. */
 export const NO_ADJ_TEXT = 'Регулювань немає — лише вага';
 
+/** Підпис під схемою кардіо без регулювань: ваги на кардіо немає (там час, дистанція). */
+export const NO_ADJ_CARDIO_TEXT = 'Регулювань немає';
+
+/** Підпис під схемою тренажера без регулювань: кардіо — без «лише вага». */
+export function noAdjustmentsText(equipment) {
+  return equipment && equipment.weightMode === 'cardio' ? NO_ADJ_CARDIO_TEXT : NO_ADJ_TEXT;
+}
+
 const MISSING_TEXT = 'Схему ще не намальовано — регулювання знімемо в залі';
 
 /** Текст значення регулювання: номер позиції ('3') | назва варіанта | 'не вибрано'. */
@@ -339,7 +347,7 @@ export function renderScheme(container, equipment, exerciseId, values, opts = {}
     }
     mount(container, h('div', { class: `scheme${isArt(sc) ? ' scheme-art' : ''}`, dataset: { scheme: sc.id } },
       canvas || h('p', { class: 'scheme-missing' }, MISSING_TEXT),
-      adjs.length ? list() : h('p', { class: 'muted scheme-tip scheme-no-adj' }, NO_ADJ_TEXT)));
+      adjs.length ? list() : h('p', { class: 'muted scheme-tip scheme-no-adj' }, noAdjustmentsText(equipment))));
   }
 
   paint();

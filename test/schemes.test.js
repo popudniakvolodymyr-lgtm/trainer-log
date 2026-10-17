@@ -308,3 +308,15 @@ test('реєстр приймає модулі обох контрактів', (
   assert.equal(isSchemeModule({ id: 'x' }), false);
   assert.equal(isSchemeModule({ art: () => '' }), false);
 });
+
+// F2 (R12, історії 30–31): на кардіо під схемою не пишемо «лише вага».
+import { noAdjustmentsText } from '../src/schemes/index.js';
+
+test('підпис без регулювань: кардіо — «Регулювань немає», решта — «… — лише вага»', () => {
+  const cardio = byId['eq-cardio'];
+  assert.equal(cardio.weightMode, 'cardio');
+  assert.equal(noAdjustmentsText(cardio), 'Регулювань немає');
+  assert.ok(!noAdjustmentsText(cardio).includes('лише вага'));
+  assert.equal(noAdjustmentsText({ ...byId['eq-01'], adjustments: [] }), 'Регулювань немає — лише вага');
+  assert.equal(noAdjustmentsText({ id: 'x', weightMode: 'bodyweight', adjustments: [] }), 'Регулювань немає — лише вага');
+});
