@@ -1,0 +1,107 @@
+/* Схеми тренажерів (src/schemes/*) і екран «Тренажери» (src/ui/equipment.js). */
+
+/* --- схема на екрані вправи --- */
+.scheme { margin: 8px 0 16px; }
+.scheme-canvas {
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: #f8faf9;
+  overflow: hidden;
+  line-height: 0;
+}
+.scheme-svg { display: block; width: 100%; height: auto; max-width: 520px; margin: 0 auto; }
+.scheme-tip { font-size: 0.92rem; margin: 6px 2px 0; }
+
+/* зони регулювань — кнопки */
+.scheme-svg .sc-zone { cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; }
+.scheme-svg .sc-zone .sc-ring { transition: fill 0.15s; }
+.scheme-svg .sc-zone:hover .sc-ring,
+.scheme-svg .sc-zone:focus-visible .sc-ring { fill: rgba(24, 100, 171, 0.24); }
+.scheme-svg .sc-zone:active .sc-ring { fill: rgba(24, 100, 171, 0.32); }
+.scheme-svg .sc-zone:focus-visible .sc-badge-bg { stroke: #0b3d6e; stroke-width: 4; }
+.scheme-svg .sc-grip:focus-visible rect { stroke-width: 4; }
+
+/* позначки ⚠ над схемою */
+.scheme-placeholder .scheme-missing { margin: 0 0 4px; font-size: 1.05rem; }
+
+/* --- список регулювань (заглушка й додаткові) --- */
+.adj-item.is-empty .adj-value { color: var(--muted); font-weight: 600; font-size: 1rem; }
+.opt-pic { display: inline-flex; align-items: center; justify-content: center; line-height: 0; }
+.opt-pic svg { display: block; }
+.opt-pic-small { background: #f3f5f4; border-radius: 8px; padding: 1px 2px; }
+
+/* --- нижня панель вибору --- */
+.picker { display: flex; flex-direction: column; gap: 12px; padding-bottom: 4px; }
+.picker-warn { align-self: flex-start; margin: 0; }
+.pick-positions { display: flex; flex-direction: column; gap: 8px; }
+.pick-pos {
+  display: flex; align-items: center; gap: 14px;
+  min-height: 60px; padding: 8px 16px;
+  border: 2px solid var(--line); border-radius: 14px;
+  background: var(--surface); color: var(--text);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.pick-pos .pick-num { font-size: 1.7rem; font-weight: 800; min-width: 1.6em; text-align: center; }
+.pick-pos .pick-word { color: var(--muted); }
+.pick-pos.is-current { border-color: #1864ab; background: #1864ab; color: #fff; }
+.pick-pos.is-current .pick-word { color: #dbe8f5; }
+.pick-pos:active { transform: scale(0.99); }
+
+.pick-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.pick-opt {
+  --opt-color: #1864ab;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  min-height: 72px; padding: 10px 8px;
+  border: 2px solid var(--line); border-radius: 14px;
+  background: var(--surface); color: var(--text);
+  font: inherit; font-weight: 600; cursor: pointer;
+}
+.pick-opt .opt-pic-big { background: #f3f5f4; border-radius: 10px; padding: 4px; }
+.pick-opt.is-current { border-color: var(--opt-color); box-shadow: 0 0 0 3px var(--opt-color) inset; }
+.pick-opt.is-current .pick-opt-label { font-weight: 800; }
+.swatch-big { width: 28px; height: 28px; }
+.pick-clear { align-self: stretch; }
+
+/* --- екран «Тренажери» (тренер) --- */
+.eq-screen .eq-toolbar { display: flex; gap: var(--gap); margin: 8px 0 12px; }
+.eq-screen .eq-toolbar .input { flex: 1; }
+.eq-group { margin: 18px 0 6px; font-size: 1.05rem; color: var(--muted); }
+.eq-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.eq-row {
+  width: 100%;
+  display: flex; align-items: center; gap: 10px;
+  min-height: var(--tap); padding: 10px 14px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--surface); color: var(--text);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.eq-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.eq-row-name { font-weight: 700; }
+.eq-row-site, .eq-sub { font-size: 0.85rem; color: var(--muted); }
+.eq-row.is-hidden { opacity: 0.6; }
+.eq-tag {
+  font-size: 0.78rem; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  background: var(--primary-soft); color: var(--primary); white-space: nowrap;
+}
+.eq-tag-hidden { background: var(--warn-bg); color: var(--warn-text); }
+
+.eq-editor { display: flex; flex-direction: column; gap: 16px; }
+.eq-section { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.eq-section h3 { margin: 0; font-size: 1.05rem; }
+.eq-inline { display: flex; gap: 8px; align-items: center; }
+.eq-inline .input { flex: 1; min-width: 0; }
+.eq-inline .btn { flex: none; }
+.eq-item { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
+.eq-item-head { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.eq-item-title { font-weight: 700; }
+.eq-opts { display: flex; flex-direction: column; gap: 6px; padding-left: 8px; border-left: 3px solid var(--line); }
+.eq-kind { display: flex; flex-wrap: wrap; gap: 6px; }
+.eq-kind label {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer;
+}
+.eq-kind input { margin: 0; }
+.btn-small { min-height: 40px; padding: 6px 12px; font-size: 0.95rem; }
+.btn-link-danger { color: var(--danger); border-color: transparent; background: transparent; }
+.eq-error { color: var(--danger); margin: 0; min-height: 1.2em; font-size: 0.95rem; }
+.eq-editor [hidden] { display: none !important; }
